@@ -18,9 +18,6 @@ _raw = _load_toml()
 
 
 class Settings:
-    # Server
-    port: int = _raw.get("server", {}).get("port", 8000)
-
     # GitHub
     github_token: str = _raw["github"]["token"]
     github_webhook_secret: str = _raw["github"].get("webhook_secret", "")

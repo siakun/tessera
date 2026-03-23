@@ -1,8 +1,5 @@
 # GitHub-Notion Sync Configuration
 
-[server]
-port = 8000
-
 [github]
 token = "ghp_xxxxxxxxxxxx"
 webhook_secret = ""
