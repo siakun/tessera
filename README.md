@@ -49,13 +49,19 @@ docker compose up -d
 All settings are in `config.toml`. Copy `config.example.toml` to get started.
 
 ```toml
-[server]
-port = 8000
-
 [github]
 token = "ghp_xxxxxxxxxxxx"
 webhook_secret = ""
-sources = ["your-username", "org:your-org-name"]
+
+# Each account has a name, optional type ("org"), and a label for Notion grouping.
+[[github.accounts]]
+name = "your-username"
+label = "Personal"
+
+[[github.accounts]]
+name = "your-org"
+type = "org"
+label = "Organization"
 
 [notion]
 token = "ntn_xxxxxxxxxxxx"
@@ -71,32 +77,23 @@ commit_count = "Commit Count"
 visibility = "Visibility"
 repo_id = "repository-id"
 
-# Visibility labels
+# Label for unmatched rows (missing repository-id)
 [visibility]
-public = "Public"
-private = "Private"
 error = "Error"
-
-# Organization-specific visibility labels
-[visibility.map]
-my-testing-org = "Testing"
-my-archive-org = "Archive"
 ```
 
-### GitHub Sources
+### GitHub Accounts
 
-Prefix `org:` for organization repositories:
+Each account requires `name` and `label`. Add `type = "org"` for organization accounts:
 ```toml
-sources = ["my-user", "org:my-org", "org:another-org"]
-```
+[[github.accounts]]
+name = "my-user"
+label = "Personal"
 
-### Visibility Map
-
-Map specific organizations to custom labels instead of the default Public/Private:
-```toml
-[visibility.map]
-my-testing-org = "Testing"
-my-archive-org = "Archive"
+[[github.accounts]]
+name = "my-org"
+type = "org"
+label = "Work"
 ```
 
 ## Notion Button Setup

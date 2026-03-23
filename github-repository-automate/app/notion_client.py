@@ -137,7 +137,7 @@ class NotionClient:
     @staticmethod
     def _get_visibility_label(repo: RepoData) -> str:
         """소스(계정/조직)에 설정된 라벨을 반환한다."""
-        label = settings.get_source_label(repo.owner)
+        label = settings.get_account_label(repo.owner)
         if label:
             return label
         return settings.visibility_label_error

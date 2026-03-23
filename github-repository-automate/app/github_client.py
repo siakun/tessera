@@ -26,7 +26,7 @@ class GitHubClient:
         async with httpx.AsyncClient(headers=self.headers, timeout=30) as client:
             # 모든 소스에서 동시에 리포 목록 가져오기
             tasks = []
-            for source in settings.get_sources():
+            for source in settings.get_accounts():
                 if source["type"] == "user":
                     tasks.append(self._get_user_repos(client))
                 else:
@@ -36,7 +36,7 @@ class GitHubClient:
 
             all_repos_raw: list[tuple[dict, str]] = []
             for i, result in enumerate(results):
-                source = settings.get_sources()[i]
+                source = settings.get_accounts()[i]
                 if isinstance(result, Exception):
                     logger.error(f"소스 {source['name']}에서 리포 조회 실패: {result}")
                     continue

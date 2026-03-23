@@ -4,13 +4,13 @@
 token = "ghp_xxxxxxxxxxxx"
 webhook_secret = ""
 
-# Each source has a name, optional type ("org"), and a label for Notion grouping.
+# Each account has a name, optional type ("org"), and a label for Notion grouping.
 # The label appears as a select tag in the Notion visibility column.
-[[github.sources]]
+[[github.accounts]]
 name = "your-username"
 label = "Personal"
 
-[[github.sources]]
+[[github.accounts]]
 name = "your-org"
 type = "org"
 label = "Organization"

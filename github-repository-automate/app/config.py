@@ -21,7 +21,7 @@ class Settings:
     # GitHub
     github_token: str = _raw["github"]["token"]
     github_webhook_secret: str = _raw["github"].get("webhook_secret", "")
-    github_sources: list[dict] = _raw["github"]["sources"]
+    github_accounts: list[dict] = _raw["github"]["accounts"]
 
     # Notion
     notion_token: str = _raw["notion"]["token"]
@@ -40,10 +40,10 @@ class Settings:
     # Visibility
     visibility_label_error: str = _raw.get("visibility", {}).get("error", "Error")
 
-    def get_sources(self) -> list[dict[str, str]]:
-        """Parse sources into [{name, type, label}]."""
+    def get_accounts(self) -> list[dict[str, str]]:
+        """Parse accounts into [{name, type, label}]."""
         sources = []
-        for src in self.github_sources:
+        for src in self.github_accounts:
             sources.append({
                 "name": src["name"],
                 "type": src.get("type", "user"),
@@ -51,9 +51,9 @@ class Settings:
             })
         return sources
 
-    def get_source_label(self, owner: str) -> str | None:
-        """소스 이름으로 라벨을 조회한다."""
-        for src in self.github_sources:
+    def get_account_label(self, owner: str) -> str | None:
+        """계정 이름으로 라벨을 조회한다."""
+        for src in self.github_accounts:
             if src["name"] == owner:
                 return src["label"]
         return None
