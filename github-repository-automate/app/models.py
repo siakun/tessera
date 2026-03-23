@@ -1,3 +1,13 @@
+"""
+데이터 모델 정의.
+
+GitHub API 응답을 정규화한 RepoData 모델을 정의한다.
+github_client가 API 응답을 RepoData로 변환하고,
+notion_client가 RepoData를 Notion 속성 형식으로 변환하는 데 사용된다.
+
+의존 관계: config ← models ← github_client, notion_client
+"""
+
 from pydantic import BaseModel
 
 

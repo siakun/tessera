@@ -1,3 +1,15 @@
+"""
+설정 관리 모듈.
+
+config.toml 파일에서 GitHub/Notion 토큰, 계정 목록, Notion DB 속성명 등
+모든 설정을 로드한다. 개인정보가 코드에 포함되지 않도록 외부 TOML 파일로 분리.
+
+- 모듈 임포트 시점에 config.toml을 읽어 Settings 싱글턴을 생성한다.
+- config.toml이 없으면 FileNotFoundError를 발생시킨다.
+- 다른 모든 모듈(github_client, notion_client, sync_service, main)이
+  `from app.config import settings`로 이 설정을 참조한다.
+"""
+
 import tomllib
 from pathlib import Path
 
@@ -17,6 +29,9 @@ def _load_toml() -> dict:
 _raw = _load_toml()
 
 
+_props = _raw.get("notion", {}).get("properties", {})
+
+
 class Settings:
     # GitHub
     github_token: str = _raw["github"]["token"]
@@ -27,8 +42,7 @@ class Settings:
     notion_token: str = _raw["notion"]["token"]
     notion_database_id: str = _raw["notion"]["database_id"]
 
-    # Notion DB property names
-    _props = _raw.get("notion", {}).get("properties", {})
+    # Notion DB property names (기본값은 config.example.toml 기준)
     notion_prop_name: str = _props.get("name", "Name")
     notion_prop_url: str = _props.get("url", "URL")
     notion_prop_description: str = _props.get("description", "Description")
@@ -41,15 +55,15 @@ class Settings:
     visibility_label_error: str = _raw.get("visibility", {}).get("error", "Error")
 
     def get_accounts(self) -> list[dict[str, str]]:
-        """Parse accounts into [{name, type, label}]."""
-        sources = []
-        for src in self.github_accounts:
-            sources.append({
+        """계정 목록을 [{name, type, label}] 형태로 반환한다."""
+        return [
+            {
                 "name": src["name"],
                 "type": src.get("type", "user"),
                 "label": src["label"],
-            })
-        return sources
+            }
+            for src in self.github_accounts
+        ]
 
     def get_account_label(self, owner: str) -> str | None:
         """계정 이름으로 라벨을 조회한다."""
@@ -60,3 +74,6 @@ class Settings:
 
 
 settings = Settings()
+
+# 모듈 로드 후 임시 변수 정리
+del _raw, _props

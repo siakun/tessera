@@ -1,3 +1,16 @@
+"""
+FastAPI 애플리케이션 엔트리포인트.
+
+웹훅 엔드포인트를 정의하고, 요청을 sync_service에 위임한다.
+- POST /webhook/sync-all:   Notion 버튼 → 전체 동기화
+- POST /webhook/sync-one:   Notion 버튼 → 단일 리포 동기화
+- POST /webhook/github-push: GitHub push 이벤트 → 해당 리포 동기화
+- GET  /health:             서버 상태 확인
+
+모든 동기화는 BackgroundTasks로 비동기 실행하여 웹훅 타임아웃을 방지한다.
+GitHub push 웹훅은 HMAC-SHA256 서명으로 검증한다.
+"""
+
 import hashlib
 import hmac
 import json
