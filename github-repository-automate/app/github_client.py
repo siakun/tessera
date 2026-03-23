@@ -16,7 +16,7 @@ import re
 
 import httpx
 
-from app.config import settings
+from app import config
 from app.models import RepoData
 
 logger = logging.getLogger(__name__)
@@ -27,18 +27,20 @@ SEMAPHORE = asyncio.Semaphore(10)
 
 class GitHubClient:
     def __init__(self) -> None:
-        self.headers = {
-            "Authorization": f"Bearer {settings.github_token}",
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-        }
         self._client: httpx.AsyncClient | None = None
 
     @property
     def client(self) -> httpx.AsyncClient:
-        """httpx.AsyncClient를 lazy-init으로 재사용한다."""
+        """httpx.AsyncClient를 lazy-init으로 재사용한다. config reload 시 새 토큰 적용."""
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(headers=self.headers, timeout=30)
+            self._client = httpx.AsyncClient(
+                headers={
+                    "Authorization": f"Bearer {config.settings.github_token}",
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                },
+                timeout=30,
+            )
         return self._client
 
     async def close(self) -> None:
@@ -48,7 +50,7 @@ class GitHubClient:
 
     async def get_all_repos(self) -> list[RepoData]:
         """모든 소스에서 리포지토리 목록을 가져온다."""
-        accounts = settings.get_accounts()
+        accounts = config.settings.get_accounts()
 
         # 모든 소스에서 동시에 리포 목록 가져오기
         tasks = []

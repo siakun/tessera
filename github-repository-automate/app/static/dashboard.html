@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GitHub-Notion Sync</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <style>
+    :root {
+      --status-green: #2e7d32;
+      --status-green-bg: #e8f5e9;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+    @media (max-width: 768px) {
+      .grid-3 { grid-template-columns: 1fr; }
+    }
+    .status-card {
+      padding: 1.25rem;
+      border-radius: 8px;
+      border: 1px solid var(--pico-muted-border-color);
+    }
+    .status-card h3 {
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+      color: var(--pico-muted-color);
+    }
+    .status-card .value {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+    .status-ok {
+      color: var(--status-green);
+    }
+    .account-list {
+      font-size: 0.85rem;
+      color: var(--pico-muted-color);
+      margin-top: 0.25rem;
+    }
+    .result-table {
+      margin-top: 1rem;
+    }
+    .result-table td:first-child {
+      font-weight: 500;
+    }
+    .log-table {
+      font-size: 0.875rem;
+    }
+    .log-table td, .log-table th {
+      padding: 0.5rem 0.75rem;
+    }
+    .not-configured {
+      text-align: center;
+      padding: 3rem 1rem;
+    }
+  </style>
+</head>
+<body>
+  <nav class="container-fluid">
+    <ul>
+      <li><strong>GitHub-Notion Sync</strong></li>
+    </ul>
+    <ul>
+      <li><a href="/settings">설정</a></li>
+    </ul>
+  </nav>
+
+  <main class="container">
+    <!-- 설정 미완료 안내 (기본 숨김) -->
+    <section id="not-configured" class="not-configured" hidden>
+      <h2>설정이 완료되지 않았습니다</h2>
+      <p>동기화를 사용하려면 먼저 설정을 완료하세요.</p>
+      <a href="/setup" role="button">설정 마법사로 이동</a>
+    </section>
+
+    <!-- 대시보드 본문 (기본 숨김) -->
+    <div id="dashboard" hidden>
+      <!-- 상태 카드 -->
+      <section class="grid-3">
+        <article class="status-card">
+          <h3>서버 상태</h3>
+          <div id="server-status" class="value">-</div>
+        </article>
+        <article class="status-card">
+          <h3>마지막 동기화</h3>
+          <div id="last-sync" class="value">-</div>
+        </article>
+        <article class="status-card">
+          <h3>등록 계정</h3>
+          <div id="account-count" class="value">-</div>
+          <div id="account-names" class="account-list"></div>
+        </article>
+      </section>
+
+      <!-- 액션 -->
+      <section>
+        <h2>동기화</h2>
+        <button id="btn-sync" type="button">전체 동기화</button>
+      </section>
+
+      <!-- 동기화 결과 -->
+      <section id="sync-result-section" hidden>
+        <h2>동기화 결과</h2>
+        <table class="result-table">
+          <tbody>
+            <tr><td>전체 리포</td><td id="res-total">-</td></tr>
+            <tr><td>생성</td><td id="res-created">-</td></tr>
+            <tr><td>업데이트</td><td id="res-updated">-</td></tr>
+            <tr><td>아카이브</td><td id="res-archived">-</td></tr>
+            <tr><td>오류 표시</td><td id="res-error">-</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 최근 로그 -->
+      <section>
+        <h2>최근 로그</h2>
+        <div class="overflow-auto">
+          <table class="log-table" role="grid">
+            <thead>
+              <tr>
+                <th>시간</th>
+                <th>유형</th>
+                <th>상세</th>
+              </tr>
+            </thead>
+            <tbody id="log-body">
+              <tr><td colspan="3">로그를 불러오는 중...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+    let pollTimer = null;
+
+    // ── 상대 시간 ──
+    function relativeTime(epoch) {
+      if (!epoch) return "없음";
+      const diff = Math.floor((Date.now() / 1000) - epoch);
+      if (diff < 60) return `${diff}초 전`;
+      if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+      return `${Math.floor(diff / 86400)}일 전`;
+    }
+
+    // ── 대시보드 데이터 렌더링 ──
+    function renderDashboard(data) {
+      if (!data.configured) {
+        $("#not-configured").hidden = false;
+        $("#dashboard").hidden = true;
+        return;
+      }
+
+      $("#not-configured").hidden = true;
+      $("#dashboard").hidden = false;
+
+      // 서버 상태
+      const statusEl = $("#server-status");
+      if (data.sync_in_progress) {
+        statusEl.textContent = "동기화 중...";
+        statusEl.classList.remove("status-ok");
+        statusEl.setAttribute("aria-busy", "true");
+      } else {
+        statusEl.textContent = "정상";
+        statusEl.classList.add("status-ok");
+        statusEl.removeAttribute("aria-busy");
+      }
+
+      // 마지막 동기화
+      $("#last-sync").textContent = relativeTime(data.last_sync_time);
+
+      // 등록 계정
+      const accounts = data.accounts || [];
+      $("#account-count").textContent = `${accounts.length}개`;
+      $("#account-names").textContent = accounts.map((a) => a.label || a.name).join(", ");
+
+      // 동기화 버튼
+      const btn = $("#btn-sync");
+      if (data.sync_in_progress) {
+        btn.disabled = true;
+        btn.setAttribute("aria-busy", "true");
+        btn.textContent = "동기화 진행 중...";
+        startPolling();
+      } else {
+        btn.disabled = false;
+        btn.removeAttribute("aria-busy");
+        btn.textContent = "전체 동기화";
+        stopPolling();
+      }
+
+      // 동기화 결과
+      const result = data.last_sync_result;
+      if (result) {
+        $("#sync-result-section").hidden = false;
+        $("#res-total").textContent = result.total_repos ?? "-";
+        $("#res-created").textContent = result.created ?? "-";
+        $("#res-updated").textContent = result.updated ?? "-";
+        $("#res-archived").textContent = result.archived ?? "-";
+        $("#res-error").textContent = result.marked_error ?? "-";
+      } else {
+        $("#sync-result-section").hidden = true;
+      }
+    }
+
+    // ── 로그 렌더링 ──
+    function renderLogs(logs) {
+      const tbody = $("#log-body");
+      if (!logs || logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3">로그가 없습니다.</td></tr>';
+        return;
+      }
+
+      // 최신순 정렬
+      const sorted = [...logs].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+      tbody.innerHTML = sorted.map((log) => {
+        const ts = log.timestamp
+          ? new Date(log.timestamp * 1000).toLocaleString("ko-KR")
+          : "-";
+        const type = log.type || "-";
+
+        // 상세 정보 구성
+        const details = [];
+        if (log.scope) details.push(`범위: ${log.scope}`);
+        if (log.error) details.push(`오류: ${log.error}`);
+        if (log.result) {
+          const r = log.result;
+          details.push(
+            `리포 ${r.total_repos ?? "?"}개 / 생성 ${r.created ?? 0} / 업데이트 ${r.updated ?? 0} / 아카이브 ${r.archived ?? 0}`
+          );
+        }
+
+        return `<tr><td>${ts}</td><td>${type}</td><td>${details.join("; ") || "-"}</td></tr>`;
+      }).join("");
+    }
+
+    // ── API 호출 ──
+    async function fetchDashboard() {
+      try {
+        const res = await fetch("/api/dashboard");
+        const data = await res.json();
+        renderDashboard(data);
+      } catch (e) {
+        console.error("대시보드 데이터 로드 실패:", e);
+      }
+    }
+
+    async function fetchLogs() {
+      try {
+        const res = await fetch("/api/sync/logs");
+        const data = await res.json();
+        renderLogs(data.logs);
+      } catch (e) {
+        console.error("로그 로드 실패:", e);
+      }
+    }
+
+    async function triggerSync() {
+      const btn = $("#btn-sync");
+      btn.disabled = true;
+      btn.setAttribute("aria-busy", "true");
+      btn.textContent = "동기화 진행 중...";
+
+      try {
+        const res = await fetch("/api/sync/trigger", { method: "POST" });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(err.detail || "동기화 요청 실패");
+          btn.disabled = false;
+          btn.removeAttribute("aria-busy");
+          btn.textContent = "전체 동기화";
+          return;
+        }
+        startPolling();
+      } catch (e) {
+        alert("동기화 요청 중 오류가 발생했습니다.");
+        btn.disabled = false;
+        btn.removeAttribute("aria-busy");
+        btn.textContent = "전체 동기화";
+      }
+    }
+
+    // ── 폴링 ──
+    function startPolling() {
+      if (pollTimer) return;
+      pollTimer = setInterval(async () => {
+        await fetchDashboard();
+        await fetchLogs();
+      }, 3000);
+    }
+
+    function stopPolling() {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+
+    // ── 초기화 ──
+    $("#btn-sync").addEventListener("click", triggerSync);
+
+    fetchDashboard();
+    fetchLogs();
+  </script>
+</body>
+</html>

@@ -19,7 +19,7 @@ main.py의 웹훅 엔드포인트에서 BackgroundTasks로 호출된다.
 
 import logging
 
-from app.config import settings
+from app import config
 from app.github_client import GitHubClient
 from app.notion_client import NotionClient
 
@@ -175,7 +175,7 @@ class SyncService:
                     await self.notion.clear_repo_id(page["id"])
                     logger.warning(f"잘못된 repo_id 초기화: {name} (repo_id={repo_id})")
                     # pages 내 데이터도 갱신 (이후 build_repo_id_lookup에서 제외)
-                    page["properties"][settings.notion_prop_repo_id]["number"] = None
+                    page["properties"][config.settings.notion_prop_repo_id]["number"] = None
                     sanitized += 1
                 except Exception as e:
                     logger.error(f"repo_id 초기화 실패: {name} ({page['id']}): {e}")
@@ -239,7 +239,7 @@ class SyncService:
         """단일 orphan 페이지가 중복인지 확인하고 아카이브 또는 Error 표시한다.
 
         - 같은 이름의 repo_id 행이 있으면 → 아카이브 (중복 제거)
-        - 매칭 불가면 → ⚠️ Error 표시 (사용자가 직접 만든 행일 수 있음)
+        - 매칭 불가면 → Error 표시 (사용자가 직접 만든 행일 수 있음)
         """
         page_id = page["id"]
         name = self.notion.get_page_name(page)

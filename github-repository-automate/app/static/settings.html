@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>설정 - GitHub-Notion Sync</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+  <style>
+    .account-row { display: flex; gap: .5rem; align-items: end; margin-bottom: .5rem; }
+    .account-row input, .account-row select { margin-bottom: 0; }
+    .account-row .name-col { flex: 2; }
+    .account-row .type-col { flex: 1; }
+    .account-row .label-col { flex: 2; }
+    .account-row .del-col { flex: 0 0 auto; }
+    #toast {
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      padding: .75rem 1.5rem; border-radius: .5rem;
+      color: #fff; font-weight: 600; z-index: 9999;
+      opacity: 0; transition: opacity .3s;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; }
+    #toast.success { background: var(--pico-color-green-550, #2e7d32); }
+    #toast.error { background: var(--pico-color-red-550, #c62828); }
+  </style>
+</head>
+<body>
+  <nav class="container">
+    <ul>
+      <li><a href="/"><strong>대시보드</strong></a></li>
+    </ul>
+    <ul>
+      <li><strong>설정</strong></li>
+    </ul>
+  </nav>
+
+  <main class="container">
+    <form id="settingsForm" autocomplete="off">
+
+      <!-- GitHub -->
+      <fieldset>
+        <legend>GitHub</legend>
+        <label>
+          Token
+          <input type="password" id="githubToken" name="github_token" placeholder="ghp_..." />
+        </label>
+        <label>
+          Webhook Secret
+          <input type="text" id="githubWebhookSecret" name="github_webhook_secret" placeholder="(선택) 웹훅 시크릿" />
+        </label>
+      </fieldset>
+
+      <!-- GitHub Accounts -->
+      <fieldset>
+        <legend>GitHub 계정</legend>
+        <div id="accountList"></div>
+        <button type="button" id="addAccountBtn" class="secondary outline">+ 계정 추가</button>
+      </fieldset>
+
+      <!-- Notion -->
+      <fieldset>
+        <legend>Notion</legend>
+        <label>
+          Token
+          <input type="password" id="notionToken" name="notion_token" placeholder="ntn_..." />
+        </label>
+        <label>
+          Database ID
+          <input type="text" id="notionDatabaseId" name="notion_database_id" placeholder="데이터베이스 ID" />
+        </label>
+      </fieldset>
+
+      <!-- Notion 속성명 -->
+      <fieldset>
+        <legend>Notion 속성명</legend>
+        <div class="grid">
+          <label>
+            Name
+            <input type="text" id="propName" name="prop_name" placeholder="Name" />
+          </label>
+          <label>
+            URL
+            <input type="text" id="propUrl" name="prop_url" placeholder="URL" />
+          </label>
+        </div>
+        <div class="grid">
+          <label>
+            Description
+            <input type="text" id="propDescription" name="prop_description" placeholder="Description" />
+          </label>
+          <label>
+            Last Commit
+            <input type="text" id="propLastCommit" name="prop_last_commit" placeholder="Last Commit" />
+          </label>
+        </div>
+        <div class="grid">
+          <label>
+            Commit Count
+            <input type="text" id="propCommitCount" name="prop_commit_count" placeholder="Commit Count" />
+          </label>
+          <label>
+            Visibility
+            <input type="text" id="propVisibility" name="prop_visibility" placeholder="Visibility" />
+          </label>
+        </div>
+        <label>
+          Repository ID
+          <input type="text" id="propRepoId" name="prop_repo_id" placeholder="repository-id" />
+        </label>
+      </fieldset>
+
+      <!-- 기타 -->
+      <fieldset>
+        <legend>기타</legend>
+        <label>
+          Error 라벨
+          <input type="text" id="visibilityError" name="visibility_error" placeholder="Error" />
+        </label>
+      </fieldset>
+
+      <button type="submit">저장</button>
+    </form>
+  </main>
+
+  <div id="toast"></div>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+    const accountList = $("#accountList");
+
+    /* ── Toast ── */
+    function showToast(msg, type) {
+      const t = $("#toast");
+      t.textContent = msg;
+      t.className = "show " + type;
+      setTimeout(() => { t.className = ""; }, 2500);
+    }
+
+    /* ── Account Row ── */
+    function createAccountRow(name, type, label) {
+      const row = document.createElement("div");
+      row.className = "account-row";
+      row.innerHTML =
+        '<div class="name-col"><input type="text" placeholder="계정명" value="' + escAttr(name) + '" data-field="name" /></div>' +
+        '<div class="type-col"><select data-field="type">' +
+          '<option value="user"' + (type === "user" ? " selected" : "") + '>user</option>' +
+          '<option value="org"' + (type === "org" ? " selected" : "") + '>org</option>' +
+        '</select></div>' +
+        '<div class="label-col"><input type="text" placeholder="라벨" value="' + escAttr(label) + '" data-field="label" /></div>' +
+        '<div class="del-col"><button type="button" class="secondary outline del-btn">&times;</button></div>';
+      row.querySelector(".del-btn").addEventListener("click", () => row.remove());
+      return row;
+    }
+
+    function escAttr(s) {
+      return String(s || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    }
+
+    $("#addAccountBtn").addEventListener("click", () => {
+      accountList.appendChild(createAccountRow("", "user", ""));
+    });
+
+    /* ── Collect Accounts ── */
+    function collectAccounts() {
+      const rows = accountList.querySelectorAll(".account-row");
+      const accounts = [];
+      rows.forEach((row) => {
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        const type = row.querySelector('[data-field="type"]').value;
+        const label = row.querySelector('[data-field="label"]').value.trim();
+        if (name) accounts.push({ name, type, label });
+      });
+      return accounts;
+    }
+
+    /* ── Load Settings ── */
+    async function loadSettings() {
+      try {
+        const resp = await fetch("/api/settings");
+        if (!resp.ok) throw new Error(resp.statusText);
+        const data = await resp.json();
+
+        // GitHub
+        const gh = data.github || {};
+        $("#githubToken").value = gh.token || "";
+        $("#githubWebhookSecret").value = gh.webhook_secret || "";
+
+        // Accounts
+        accountList.innerHTML = "";
+        (gh.accounts || []).forEach((a) => {
+          accountList.appendChild(createAccountRow(a.name, a.type || "user", a.label));
+        });
+
+        // Notion
+        const nt = data.notion || {};
+        $("#notionToken").value = nt.token || "";
+        $("#notionDatabaseId").value = nt.database_id || "";
+
+        // Notion properties
+        const props = nt.properties || {};
+        $("#propName").value = props.name || "";
+        $("#propUrl").value = props.url || "";
+        $("#propDescription").value = props.description || "";
+        $("#propLastCommit").value = props.last_commit || "";
+        $("#propCommitCount").value = props.commit_count || "";
+        $("#propVisibility").value = props.visibility || "";
+        $("#propRepoId").value = props.repo_id || "";
+
+        // Visibility
+        const vis = data.visibility || {};
+        $("#visibilityError").value = vis.error || "";
+      } catch (e) {
+        showToast("설정을 불러오지 못했습니다: " + e.message, "error");
+      }
+    }
+
+    /* ── Save Settings ── */
+    $("#settingsForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.setAttribute("aria-busy", "true");
+      btn.disabled = true;
+
+      const body = {
+        github_token: $("#githubToken").value,
+        github_webhook_secret: $("#githubWebhookSecret").value,
+        github_accounts: collectAccounts(),
+        notion_token: $("#notionToken").value,
+        notion_database_id: $("#notionDatabaseId").value,
+        notion_properties: {
+          name: $("#propName").value || undefined,
+          url: $("#propUrl").value || undefined,
+          description: $("#propDescription").value || undefined,
+          last_commit: $("#propLastCommit").value || undefined,
+          commit_count: $("#propCommitCount").value || undefined,
+          visibility: $("#propVisibility").value || undefined,
+          repo_id: $("#propRepoId").value || undefined,
+        },
+        visibility_error: $("#visibilityError").value || undefined,
+      };
+
+      // undefined 프로퍼티 제거
+      Object.keys(body.notion_properties).forEach((k) => {
+        if (body.notion_properties[k] === undefined) delete body.notion_properties[k];
+      });
+
+      try {
+        const resp = await fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const result = await resp.json();
+        if (!resp.ok) throw new Error(result.detail || "저장 실패");
+        showToast(result.message || "설정이 저장되었습니다.", "success");
+      } catch (e) {
+        showToast(e.message, "error");
+      } finally {
+        btn.removeAttribute("aria-busy");
+        btn.disabled = false;
+      }
+    });
+
+    /* ── Init ── */
+    loadSettings();
+  </script>
+</body>
+</html>

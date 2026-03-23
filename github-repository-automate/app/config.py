@@ -4,55 +4,45 @@
 config.toml 파일에서 GitHub/Notion 토큰, 계정 목록, Notion DB 속성명 등
 모든 설정을 로드한다. 개인정보가 코드에 포함되지 않도록 외부 TOML 파일로 분리.
 
-- 모듈 임포트 시점에 config.toml을 읽어 Settings 싱글턴을 생성한다.
-- config.toml이 없으면 FileNotFoundError를 발생시킨다.
-- 다른 모든 모듈(github_client, notion_client, sync_service, main)이
-  `from app.config import settings`로 이 설정을 참조한다.
+- config.toml이 없거나 유효하지 않으면 settings = None (서버 크래시 방지)
+- 다른 모듈은 `from app import config` 후 `config.settings`로 접근
+- 설정 마법사에서 저장 후 config.settings를 재할당하면 즉시 반영
 """
 
+import logging
 import tomllib
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
 
-def _load_toml() -> dict:
-    """config.toml 파일을 로드한다."""
-    config_path = Path(__file__).resolve().parent.parent / "config.toml"
-    if not config_path.exists():
-        raise FileNotFoundError(
-            f"config.toml not found at {config_path}\n"
-            "Copy config.example.toml to config.toml and edit it."
-        )
-    with open(config_path, "rb") as f:
-        return tomllib.load(f)
-
-
-_raw = _load_toml()
-
-
-_props = _raw.get("notion", {}).get("properties", {})
+CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.toml"
 
 
 class Settings:
-    # GitHub
-    github_token: str = _raw["github"]["token"]
-    github_webhook_secret: str = _raw["github"].get("webhook_secret", "")
-    github_accounts: list[dict] = _raw["github"]["accounts"]
+    """config.toml에서 파싱된 설정. try_load_config()으로만 생성한다."""
 
-    # Notion
-    notion_token: str = _raw["notion"]["token"]
-    notion_database_id: str = _raw["notion"]["database_id"]
+    def __init__(self, raw: dict) -> None:
+        # GitHub
+        self.github_token: str = raw["github"]["token"]
+        self.github_webhook_secret: str = raw["github"].get("webhook_secret", "")
+        self.github_accounts: list[dict] = raw["github"]["accounts"]
 
-    # Notion DB property names (기본값은 config.example.toml 기준)
-    notion_prop_name: str = _props.get("name", "Name")
-    notion_prop_url: str = _props.get("url", "URL")
-    notion_prop_description: str = _props.get("description", "Description")
-    notion_prop_last_commit: str = _props.get("last_commit", "Last Commit")
-    notion_prop_commit_count: str = _props.get("commit_count", "Commit Count")
-    notion_prop_visibility: str = _props.get("visibility", "Visibility")
-    notion_prop_repo_id: str = _props.get("repo_id", "repository-id")
+        # Notion
+        self.notion_token: str = raw["notion"]["token"]
+        self.notion_database_id: str = raw["notion"]["database_id"]
 
-    # Visibility
-    visibility_label_error: str = _raw.get("visibility", {}).get("error", "Error")
+        # Notion DB property names (기본값은 config.example.toml 기준)
+        props = raw.get("notion", {}).get("properties", {})
+        self.notion_prop_name: str = props.get("name", "Name")
+        self.notion_prop_url: str = props.get("url", "URL")
+        self.notion_prop_description: str = props.get("description", "Description")
+        self.notion_prop_last_commit: str = props.get("last_commit", "Last Commit")
+        self.notion_prop_commit_count: str = props.get("commit_count", "Commit Count")
+        self.notion_prop_visibility: str = props.get("visibility", "Visibility")
+        self.notion_prop_repo_id: str = props.get("repo_id", "repository-id")
+
+        # Visibility
+        self.visibility_label_error: str = raw.get("visibility", {}).get("error", "Error")
 
     def get_accounts(self) -> list[dict[str, str]]:
         """계정 목록을 [{name, type, label}] 형태로 반환한다."""
@@ -73,7 +63,24 @@ class Settings:
         return None
 
 
-settings = Settings()
+def try_load_config() -> Settings | None:
+    """config.toml을 로드한다. 실패 시 None 반환 (서버 크래시 방지)."""
+    if not CONFIG_PATH.exists():
+        logger.warning(f"config.toml not found at {CONFIG_PATH}")
+        return None
+    try:
+        with open(CONFIG_PATH, "rb") as f:
+            raw = tomllib.load(f)
+        # 필수 키 검증
+        _ = raw["github"]["token"]
+        _ = raw["github"]["accounts"]
+        _ = raw["notion"]["token"]
+        _ = raw["notion"]["database_id"]
+        return Settings(raw)
+    except (KeyError, tomllib.TOMLDecodeError) as e:
+        logger.warning(f"config.toml 로드 실패: {e}")
+        return None
 
-# 모듈 로드 후 임시 변수 정리
-del _raw, _props
+
+# 모듈 레벨 싱글턴 — main.py startup에서 설정, 설정 마법사에서 재할당
+settings: Settings | None = None

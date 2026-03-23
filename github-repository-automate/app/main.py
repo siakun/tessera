@@ -1,26 +1,21 @@
 """
 FastAPI 애플리케이션 엔트리포인트.
 
-웹훅 엔드포인트를 정의하고, 요청을 sync_service에 위임한다.
-- POST /webhook/sync-all:   Notion 버튼 → 전체 동기화
-- POST /webhook/sync-one:   Notion 버튼 → 단일 리포 동기화
-- POST /webhook/github-push: GitHub push 이벤트 → 해당 리포 동기화
-- POST /webhook/deduplicate: repo_id 없는 중복 행 정리
-- GET  /health:             서버 상태 확인
-
-모든 동기화는 BackgroundTasks로 비동기 실행하여 웹훅 타임아웃을 방지한다.
-GitHub push 웹훅은 HMAC-SHA256 서명으로 검증한다.
+- 설정 미완료 시: 설정 마법사 (setup.html)
+- 설정 완료 후: 대시보드 (dashboard.html)
+- 웹훅 엔드포인트는 설정 완료 후에만 동작 (503)
 """
 
-import hashlib
-import hmac
-import json
 import logging
+from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, Request, Response
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
-from app.config import settings
-from app.sync_service import SyncService
+from app import config
+from app.config import try_load_config
+from app.state import app_state
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,156 +24,56 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="GitHub-Notion Sync")
-sync_service = SyncService()
+
+STATIC_DIR = Path(__file__).parent / "static"
+
+
+@app.on_event("startup")
+async def startup():
+    """서버 시작 시 config.toml을 로드한다."""
+    loaded = try_load_config()
+    config.settings = loaded
+    app_state.configured = loaded is not None
+    if loaded:
+        logger.info("설정 로드 완료")
+    else:
+        logger.warning("설정 미완료 — 설정 마법사 모드로 시작합니다.")
+
+
+# 라우터 등록
+from app.routers import webhook, setup, dashboard  # noqa: E402
+
+app.include_router(webhook.router)
+app.include_router(setup.router)
+app.include_router(dashboard.router)
+
+# 정적 파일 서빙
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+@app.get("/")
+async def root():
+    """설정 여부에 따라 대시보드 또는 설정 마법사를 표시한다."""
+    if app_state.configured:
+        return FileResponse(STATIC_DIR / "dashboard.html")
+    return FileResponse(STATIC_DIR / "setup.html")
+
+
+@app.get("/setup")
+async def setup_page():
+    """설정 마법사 페이지."""
+    return FileResponse(STATIC_DIR / "setup.html")
+
+
+@app.get("/settings")
+async def settings_page():
+    """설정 편집 페이지."""
+    return FileResponse(STATIC_DIR / "settings.html")
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
-
-
-@app.post("/webhook/sync-all")
-async def webhook_sync_all(request: Request, background_tasks: BackgroundTasks):
-    """Notion '전체 리포지토리 업데이트' 버튼에서 호출."""
-    body = await request.body()
-    logger.info(f"[sync-all] 웹훅 수신: {body.decode(errors='replace')}")
-
-    background_tasks.add_task(sync_service.sync_all)
-    return {"status": "accepted", "message": "전체 동기화를 시작합니다."}
-
-
-@app.post("/webhook/sync-one")
-async def webhook_sync_one(request: Request, background_tasks: BackgroundTasks):
-    """Notion '선택한 리포지토리 업데이트' 버튼에서 호출."""
-    body = await request.body()
-    body_text = body.decode(errors="replace")
-    logger.info(f"[sync-one] 웹훅 수신: {body_text}")
-
-    try:
-        data = json.loads(body_text) if body_text.strip() else {}
-    except json.JSONDecodeError:
-        data = {}
-
-    page_id = _extract_page_id(data)
-    repo_url = _extract_repo_url(data)
-
-    if not page_id or not repo_url:
-        logger.error(f"[sync-one] page_id 또는 repo_url 추출 실패: {data}")
-        return Response(
-            content=json.dumps(
-                {"status": "error", "message": "page_id 또는 URL을 찾을 수 없습니다."},
-                ensure_ascii=False,
-            ),
-            status_code=400,
-            media_type="application/json",
-        )
-
-    background_tasks.add_task(sync_service.sync_one, page_id, repo_url)
-    return {"status": "accepted", "message": f"리포지토리 동기화를 시작합니다: {repo_url}"}
-
-
-@app.post("/webhook/github-push")
-async def webhook_github_push(request: Request, background_tasks: BackgroundTasks):
-    """GitHub push 이벤트 웹훅."""
-    body = await request.body()
-
-    # HMAC-SHA256 서명 검증
-    if settings.github_webhook_secret:
-        signature = request.headers.get("X-Hub-Signature-256", "")
-        expected = "sha256=" + hmac.new(
-            settings.github_webhook_secret.encode(),
-            body,
-            hashlib.sha256,
-        ).hexdigest()
-
-        if not hmac.compare_digest(signature, expected):
-            logger.warning("[github-push] 서명 검증 실패")
-            return Response(status_code=403, content="Invalid signature")
-
-    try:
-        data = json.loads(body)
-    except json.JSONDecodeError:
-        return Response(status_code=400, content="Invalid JSON")
-
-    logger.info(f"[github-push] 이벤트 수신: ref={data.get('ref')}, repo={data.get('repository', {}).get('full_name')}")
-
-    # main/master 브랜치 push만 처리
-    ref = data.get("ref", "")
-    if ref not in ("refs/heads/main", "refs/heads/master"):
-        logger.info(f"[github-push] main/master 브랜치가 아님, 무시: {ref}")
-        return {"status": "ignored", "message": f"브랜치 무시: {ref}"}
-
-    full_name = data.get("repository", {}).get("full_name")
-    if not full_name:
-        return Response(status_code=400, content="Missing repository.full_name")
-
-    background_tasks.add_task(sync_service.sync_on_push, full_name)
-    return {"status": "accepted", "message": f"Push 동기화를 시작합니다: {full_name}"}
-
-
-@app.post("/webhook/deduplicate")
-async def webhook_deduplicate(request: Request, background_tasks: BackgroundTasks):
-    """repo_id 없는 중복 행을 찾아 아카이브한다."""
-    body = await request.body()
-    body_text = body.decode(errors="replace")
-    logger.info(f"[deduplicate] 요청 수신: {body_text}")
-
-    try:
-        data = json.loads(body_text) if body_text.strip() else {}
-    except json.JSONDecodeError:
-        data = {}
-
-    page_id = data.get("page_id")
-
-    if page_id:
-        # 개별 페이지 중복 제거
-        background_tasks.add_task(sync_service.deduplicate_one, page_id)
-        return {"status": "accepted", "message": f"개별 중복 제거: {page_id}"}
-    else:
-        # 전체 중복 제거
-        background_tasks.add_task(sync_service.deduplicate)
-        return {"status": "accepted", "message": "전체 중복 제거를 시작합니다."}
-
-
-def _extract_page_id(data: dict) -> str | None:
-    """Notion 웹훅 페이로드에서 page_id를 추출한다."""
-    # Notion 웹훅 페이로드 형식이 정확히 문서화되어 있지 않으므로
-    # 여러 경로를 시도한다
-    for key in ("page_id", "pageId", "id"):
-        if key in data:
-            return data[key]
-
-    if "data" in data and isinstance(data["data"], dict):
-        for key in ("page_id", "pageId", "id"):
-            if key in data["data"]:
-                return data["data"][key]
-
-    return None
-
-
-def _extract_repo_url(data: dict) -> str | None:
-    """Notion 웹훅 페이로드에서 리포지토리 URL을 추출한다."""
-    url_prop = settings.notion_prop_url
-
-    # 직접 URL 키 시도
-    if "url" in data and "github.com" in str(data["url"]):
-        return data["url"]
-
-    # properties에서 URL 추출 시도
-    props = data.get("properties", data.get("data", {}).get("properties", {}))
-    if isinstance(props, dict):
-        url_obj = props.get(url_prop, props.get("URL", props.get("url", {})))
-        if isinstance(url_obj, dict):
-            return url_obj.get("url")
-        if isinstance(url_obj, str) and "github.com" in url_obj:
-            return url_obj
-
-    # 모든 값에서 github URL 찾기
-    for value in data.values():
-        if isinstance(value, str) and "github.com" in value:
-            return value
-
-    return None
+    return {"status": "ok", "configured": app_state.configured}
 
 
 if __name__ == "__main__":
