@@ -1,0 +1,13 @@
+services:
+  github-notion-sync:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,0 +1,35 @@
+# GitHub-Notion Sync Configuration
+
+[server]
+port = 8000
+
+[github]
+token = "ghp_xxxxxxxxxxxx"
+webhook_secret = ""
+# Prefix "org:" for organization repositories
+sources = ["your-username", "org:your-org-name"]
+
+[notion]
+token = "ntn_xxxxxxxxxxxx"
+database_id = "your_database_id_here"
+
+# Notion DB property name overrides (defaults shown)
+[notion.properties]
+name = "Name"
+url = "URL"
+description = "Description"
+last_commit = "Last Commit"
+commit_count = "Commit Count"
+visibility = "Visibility"
+repo_id = "repository-id"
+
+# Visibility labels
+[visibility]
+public = "Public"
+private = "Private"
+error = "Error"
+
+# Organization-specific visibility labels
+# [visibility.map]
+# my-testing-org = "Testing"
+# my-archive-org = "Archive"

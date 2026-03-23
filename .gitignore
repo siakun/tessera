@@ -1,0 +1,21 @@
+# Claude
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Configuration (contains secrets)
+.env
+config.toml
+
+# Plan (personal project notes)
+plan/
+
+# IDE
+.idea/
+.vscode/
+*.swp
