@@ -1,278 +1,422 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 const PROPERTY_FIELDS = [
   { key: 'name', label: '이름', placeholder: 'Name' },
   { key: 'url', label: 'URL', placeholder: 'URL' },
   { key: 'description', label: '설명', placeholder: 'Description' },
   { key: 'last_commit', label: '마지막 커밋', placeholder: 'Last Commit' },
-  { key: 'commit_count', label: '커밋 개수', placeholder: 'Commit Count' },
-  { key: 'visibility', label: '공유여부', placeholder: 'Visibility' },
-  { key: 'repo_id', label: '리포 ID', placeholder: 'repository-id' },
+  { key: 'commit_count', label: '커밋 수', placeholder: 'Commit Count' },
+  { key: 'visibility', label: '가시성', placeholder: 'Visibility' },
+  { key: 'repo_id', label: '저장소 ID', placeholder: 'repository-id' },
 ]
 
-const ACCOUNT_TYPES = ['user', 'org']
+const DEFAULT_PROPERTIES = PROPERTY_FIELDS.reduce((result, field) => {
+  result[field.key] = field.placeholder
+  return result
+}, {})
 
-export default function SettingsTab() {
-  const [form, setForm] = useState({
+const ACCOUNT_TYPES = [
+  { value: 'user', label: 'User' },
+  { value: 'org', label: 'Organization' },
+]
+
+function createEmptyAccount() {
+  return { name: '', type: 'user', label: '' }
+}
+
+function createInitialForm() {
+  return {
     github_token: '',
-    webhook_secret: '',
-    github_accounts: [],
+    github_webhook_secret: '',
+    github_accounts: [createEmptyAccount()],
     notion_token: '',
     notion_database_id: '',
-    property_name: '',
-    property_url: '',
-    property_description: '',
-    property_last_commit: '',
-    property_commit_count: '',
-    property_visibility: '',
-    property_repo_id: '',
-    error_label: '',
-  })
+    notion_properties: { ...DEFAULT_PROPERTIES },
+    visibility_error: 'Error',
+  }
+}
+
+function parseSettings(data) {
+  const github = data.github ?? {}
+  const notion = data.notion ?? {}
+  const visibility = data.visibility ?? {}
+
+  return {
+    github_token: github.token ?? '',
+    github_webhook_secret: github.webhook_secret ?? '',
+    github_accounts: github.accounts?.length ? github.accounts : [createEmptyAccount()],
+    notion_token: notion.token ?? '',
+    notion_database_id: notion.database_id ?? '',
+    notion_properties: {
+      ...DEFAULT_PROPERTIES,
+      ...(notion.properties ?? {}),
+    },
+    visibility_error: visibility.error ?? 'Error',
+  }
+}
+
+export default function SettingsTab() {
+  const [form, setForm] = useState(createInitialForm)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState('')
+  const [toast, setToast] = useState(null)
 
-  useEffect(() => {
-    fetchSettings()
+  const showToast = useCallback((message, isError = false) => {
+    setToast({ message, isError })
   }, [])
 
-  const fetchSettings = async () => {
+  useEffect(() => {
+    if (!toast) return undefined
+
+    const timer = window.setTimeout(() => setToast(null), 3000)
+    return () => window.clearTimeout(timer)
+  }, [toast])
+
+  const fetchSettings = useCallback(async () => {
     setLoading(true)
+
     try {
       const res = await fetch('/api/settings')
-      if (!res.ok) throw new Error()
+      if (!res.ok) throw new Error('설정을 불러올 수 없습니다.')
+
       const data = await res.json()
-      setForm({
-        github_token: data.github_token ?? '',
-        webhook_secret: data.webhook_secret ?? '',
-        github_accounts: data.github_accounts ?? [],
-        notion_token: data.notion_token ?? '',
-        notion_database_id: data.notion_database_id ?? '',
-        property_name: data.property_name ?? '',
-        property_url: data.property_url ?? '',
-        property_description: data.property_description ?? '',
-        property_last_commit: data.property_last_commit ?? '',
-        property_commit_count: data.property_commit_count ?? '',
-        property_visibility: data.property_visibility ?? '',
-        property_repo_id: data.property_repo_id ?? '',
-        error_label: data.error_label ?? '',
-      })
+      setForm(parseSettings(data))
     } catch {
       showToast('설정을 불러오지 못했습니다.', true)
     } finally {
       setLoading(false)
     }
-  }
+  }, [showToast])
 
-  const showToast = (msg, isError = false) => {
-    setToast({ msg, isError })
-    setTimeout(() => setToast(''), 3000)
-  }
+  useEffect(() => {
+    void fetchSettings()
+  }, [fetchSettings])
 
   const handleChange = (key, value) => {
-    setForm(prev => ({ ...prev, [key]: value }))
+    setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const handlePropertyChange = (key, value) => {
+    setForm((prev) => ({
+      ...prev,
+      notion_properties: {
+        ...prev.notion_properties,
+        [key]: value,
+      },
+    }))
   }
 
   const handleAccountChange = (index, key, value) => {
-    setForm(prev => {
-      const accounts = [...prev.github_accounts]
-      accounts[index] = { ...accounts[index], [key]: value }
-      return { ...prev, github_accounts: accounts }
+    setForm((prev) => {
+      const nextAccounts = [...prev.github_accounts]
+      nextAccounts[index] = { ...nextAccounts[index], [key]: value }
+      return { ...prev, github_accounts: nextAccounts }
     })
   }
 
   const addAccount = () => {
-    setForm(prev => ({
+    setForm((prev) => ({
       ...prev,
-      github_accounts: [...prev.github_accounts, { name: '', type: 'user', label: '' }],
+      github_accounts: [...prev.github_accounts, createEmptyAccount()],
     }))
   }
 
   const removeAccount = (index) => {
-    setForm(prev => ({
-      ...prev,
-      github_accounts: prev.github_accounts.filter((_, i) => i !== index),
-    }))
+    setForm((prev) => {
+      const nextAccounts = prev.github_accounts.filter((_, accountIndex) => accountIndex !== index)
+      return {
+        ...prev,
+        github_accounts: nextAccounts.length > 0 ? nextAccounts : [createEmptyAccount()],
+      }
+    })
   }
 
   const handleSave = async () => {
     setSaving(true)
+
     try {
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
-      if (!res.ok) throw new Error()
+
+      if (!res.ok) throw new Error('설정을 저장할 수 없습니다.')
       showToast('설정이 저장되었습니다.')
     } catch {
-      showToast('저장에 실패했습니다.', true)
+      showToast('설정을 저장하지 못했습니다.', true)
     } finally {
       setSaving(false)
     }
   }
 
+  const connectedAccounts = form.github_accounts.filter((account) => account.name.trim())
+  const mappedProperties = Object.values(form.notion_properties).filter(Boolean).length
+
   if (loading) {
     return (
-      <div className="max-w-[640px] mx-auto py-8 flex items-center justify-center text-fg-muted text-sm">
-        <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
-        로딩 중...
+      <div className="panel panel-spacious fade-in flex h-full items-center justify-center text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-tertiary text-fg-muted">
+          <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+        </div>
+        <h2 className="mt-5 text-xl font-semibold tracking-tight text-fg">
+          설정을 불러오는 중입니다
+        </h2>
+        <p className="mt-3 text-sm leading-6 text-fg-muted">
+          현재 config.toml과 Notion 매핑 상태를 읽어오는 동안 잠시만 기다려 주세요.
+        </p>
       </div>
     )
   }
 
   return (
-    <div className="max-w-[640px] mx-auto">
-
-      {/* GitHub */}
-      <Section title="GitHub">
-        <Field label="Token">
-          <input
-            type="password"
-            value={form.github_token}
-            onChange={e => handleChange('github_token', e.target.value)}
-            placeholder="ghp_..."
-          />
-        </Field>
-        <Field label="Webhook Secret">
-          <input
-            type="text"
-            value={form.webhook_secret}
-            onChange={e => handleChange('webhook_secret', e.target.value)}
-            placeholder="webhook secret"
-          />
-        </Field>
-      </Section>
-
-      {/* GitHub 계정 */}
-      <Section title="GitHub 계정">
-        {form.github_accounts.map((account, i) => (
-          <div key={i} className="grid grid-cols-[1fr_90px_1fr_32px] gap-2 items-center">
-            <input
-              type="text"
-              value={account.name}
-              onChange={e => handleAccountChange(i, 'name', e.target.value)}
-              placeholder="이름"
-            />
-            <select
-              value={account.type}
-              onChange={e => handleAccountChange(i, 'type', e.target.value)}
-            >
-              {ACCOUNT_TYPES.map(t => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-            <input
-              type="text"
-              value={account.label}
-              onChange={e => handleAccountChange(i, 'label', e.target.value)}
-              placeholder="라벨"
-            />
-            <button
-              onClick={() => removeAccount(i)}
-              className="w-7 h-7 flex items-center justify-center text-fg-muted hover:text-err-text hover:bg-err-soft rounded"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+    <div className="flex h-full min-h-0 flex-col gap-5 xl:grid xl:grid-cols-[320px_minmax(0,1fr)]">
+      <aside className="shrink-0 space-y-5 xl:min-h-0">
+        <section className="panel panel-spacious fade-in">
+          <div>
+            <div className="eyebrow">Settings</div>
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-fg sm:text-3xl">
+              연결 설정을 모던한 운영 폼으로 재정리했습니다
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-fg-muted">
+              GitHub 토큰, 동기화 대상 계정, Notion 데이터베이스, 속성 매핑을 viewport 안에서 관리할 수 있도록 정리했습니다.
+            </p>
           </div>
-        ))}
-        <button
-          onClick={addAccount}
-          className="text-accent-text hover:text-accent-hover text-sm font-medium"
-        >
-          + 계정 추가
-        </button>
-      </Section>
 
-      {/* Notion */}
-      <Section title="Notion">
-        <Field label="Token">
-          <input
-            type="password"
-            value={form.notion_token}
-            onChange={e => handleChange('notion_token', e.target.value)}
-            placeholder="secret_..."
-          />
-        </Field>
-        <Field label="Database ID">
-          <input
-            type="text"
-            value={form.notion_database_id}
-            onChange={e => handleChange('notion_database_id', e.target.value)}
-            placeholder="database id"
-          />
-        </Field>
-      </Section>
+          <div className="mt-5 grid gap-3">
+            <SummaryTile label="연결 계정" value={`${connectedAccounts.length}개`} />
+            <SummaryTile label="속성 매핑" value={`${mappedProperties}개`} />
+            <SummaryTile label="오류 라벨" value={form.visibility_error || '-'} />
+          </div>
+        </section>
 
-      {/* Notion 속성명 */}
-      <Section title="Notion 속성명">
-        {PROPERTY_FIELDS.map(f => (
-          <Field key={f.key} label={f.label}>
-            <input
-              type="text"
-              value={form[`property_${f.key}`]}
-              onChange={e => handleChange(`property_${f.key}`, e.target.value)}
-              placeholder={f.placeholder}
-            />
-          </Field>
-        ))}
-      </Section>
+        <section className="panel p-5 fade-in fade-in-delayed">
+          <h2 className="text-lg font-semibold tracking-tight text-fg">
+            현재 구성 요약
+          </h2>
+          <div className="mt-5 space-y-4">
+            <SummaryRow label="GitHub Token" value={form.github_token ? '입력됨' : '비어 있음'} />
+            <SummaryRow label="Notion Token" value={form.notion_token ? '입력됨' : '비어 있음'} />
+            <SummaryRow label="Database ID" value={form.notion_database_id ? '연결됨' : '미입력'} />
+            <SummaryRow label="Webhook Secret" value={form.github_webhook_secret ? '사용 중' : '미사용'} />
+          </div>
+        </section>
 
-      {/* 기타 */}
-      <Section title="기타">
-        <Field label="Error Label">
-          <input
-            type="text"
-            value={form.error_label}
-            onChange={e => handleChange('error_label', e.target.value)}
-            placeholder="error label"
-          />
-        </Field>
-      </Section>
-
-      {/* Toast + Save */}
-      <div className="flex items-center gap-3 mt-2">
         {toast && (
-          <div className={`rounded px-3 py-2 text-sm ${toast.isError ? 'bg-err-soft text-err-text' : 'bg-ok-soft text-ok-text'}`}>
-            {toast.msg}
+          <div className={`notice-inline fade-in ${toast.isError ? 'is-error' : 'is-success'}`}>
+            {toast.message}
           </div>
         )}
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="ml-auto px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {saving ? '저장 중...' : '저장'}
-        </button>
+      </aside>
+
+      <div className="scroll-pane flex-1 space-y-5 pr-1 xl:h-full">
+        <section className="panel p-5 fade-in">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-fg">
+              빠른 편집
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-fg-muted">
+              각 영역은 독립 패널로 나누어 한 화면 안에서 바로 수정할 수 있게 유지했습니다.
+            </p>
+          </div>
+        </div>
+      </section>
+
+          <ConfigSection
+            title="GitHub 액세스"
+            description="동기화에 사용할 개인 액세스 토큰과 Webhook 보안 시크릿을 관리합니다."
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Personal Access Token">
+                <input
+                  type="password"
+                  value={form.github_token}
+                  onChange={(event) => handleChange('github_token', event.target.value)}
+                  placeholder="ghp_..."
+                />
+              </Field>
+              <Field label="Webhook Secret">
+                <input
+                  type="password"
+                  value={form.github_webhook_secret}
+                  onChange={(event) => handleChange('github_webhook_secret', event.target.value)}
+                  placeholder="선택 사항"
+                />
+              </Field>
+            </div>
+          </ConfigSection>
+
+          <ConfigSection
+            title="동기화 대상 계정"
+            description="개인 계정과 조직 계정을 함께 운영할 수 있도록 행 단위로 관리합니다."
+          >
+            <div className="space-y-3">
+              {form.github_accounts.map((account, index) => (
+                <div key={index} className="rounded-[24px] border border-edge bg-surface/70 p-4">
+                  <div className="grid gap-3 md:grid-cols-[1.2fr_180px_1fr_auto] md:items-end">
+                    <Field label="계정 이름">
+                      <input
+                        type="text"
+                        value={account.name}
+                        onChange={(event) => handleAccountChange(index, 'name', event.target.value)}
+                        placeholder="username 또는 organization"
+                      />
+                    </Field>
+                    <Field label="유형">
+                      <select
+                        value={account.type}
+                        onChange={(event) => handleAccountChange(index, 'type', event.target.value)}
+                      >
+                        {ACCOUNT_TYPES.map((type) => (
+                          <option key={type.value} value={type.value}>
+                            {type.label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="표시 라벨">
+                      <input
+                        type="text"
+                        value={account.label}
+                        onChange={(event) => handleAccountChange(index, 'label', event.target.value)}
+                        placeholder="예: Personal, Work"
+                      />
+                    </Field>
+                    <button
+                      type="button"
+                      onClick={() => removeAccount(index)}
+                      className="secondary-button min-w-[92px]"
+                    >
+                      제거
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button type="button" onClick={addAccount} className="secondary-button mt-4">
+              계정 추가
+            </button>
+          </ConfigSection>
+
+          <ConfigSection
+            title="Notion 데이터베이스"
+            description="자동화가 반영될 Integration Token과 Database ID를 설정합니다."
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Integration Token">
+                <input
+                  type="password"
+                  value={form.notion_token}
+                  onChange={(event) => handleChange('notion_token', event.target.value)}
+                  placeholder="secret_..."
+                />
+              </Field>
+              <Field label="Database ID">
+                <input
+                  type="text"
+                  value={form.notion_database_id}
+                  onChange={(event) => handleChange('notion_database_id', event.target.value)}
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                />
+              </Field>
+            </div>
+          </ConfigSection>
+
+          <ConfigSection
+            title="속성 매핑"
+            description="Notion 데이터베이스 컬럼 이름과 GitHub 메타데이터 필드를 매핑합니다."
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              {PROPERTY_FIELDS.map((field) => (
+                <Field key={field.key} label={field.label}>
+                  <input
+                    type="text"
+                    value={form.notion_properties[field.key] ?? ''}
+                    onChange={(event) => handlePropertyChange(field.key, event.target.value)}
+                    placeholder={field.placeholder}
+                  />
+                </Field>
+              ))}
+            </div>
+          </ConfigSection>
+
+          <ConfigSection
+            title="예외 처리 라벨"
+            description="repository-id가 맞지 않는 행을 Notion에서 어떤 라벨로 표시할지 지정합니다."
+          >
+            <Field label="Visibility Error Label">
+              <input
+                type="text"
+                value={form.visibility_error}
+                onChange={(event) => handleChange('visibility_error', event.target.value)}
+                placeholder="Error"
+              />
+            </Field>
+          </ConfigSection>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="primary-button"
+            >
+              {saving ? '저장 중...' : '설정 저장'}
+            </button>
+          </div>
       </div>
     </div>
   )
 }
 
-function Section({ title, children }) {
+function ConfigSection({ title, description, children }) {
   return (
-    <div className="border border-edge-focus rounded-lg mb-5">
-      <div className="flex items-center px-4 py-2 bg-surface-tertiary rounded-t-[7px]">
-        <span className="text-xs font-semibold text-fg-muted">{title}</span>
+    <section className="panel p-6 fade-in fade-in-delayed">
+      <div className="mb-5">
+        <h2 className="text-lg font-semibold tracking-tight text-fg">
+          {title}
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-fg-muted">
+          {description}
+        </p>
       </div>
-      <div className="p-4 space-y-3">
-        {children}
-      </div>
-    </div>
+      {children}
+    </section>
   )
 }
 
 function Field({ label, children }) {
   return (
-    <div>
-      <label className="text-[11px] text-fg-muted mb-1 block">{label}</label>
+    <label className="block">
+      <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-faint">
+        {label}
+      </span>
       {children}
+    </label>
+  )
+}
+
+function SummaryTile({ label, value }) {
+  return (
+    <div className="rounded-[24px] border border-edge bg-surface/70 px-4 py-4">
+      <div className="metric-label">{label}</div>
+      <div className="mt-3 text-lg font-semibold tracking-tight text-fg">
+        {value}
+      </div>
+    </div>
+  )
+}
+
+function SummaryRow({ label, value }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-edge pb-3 last:border-b-0 last:pb-0">
+      <span className="text-sm text-fg-muted">{label}</span>
+      <span className="text-sm font-semibold text-fg">{value}</span>
     </div>
   )
 }
