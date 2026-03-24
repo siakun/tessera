@@ -49,6 +49,7 @@ function getErrorMessage(error, fallback) {
 
 export default function SetupWizard({ onComplete, isReconfigure = false }) {
   const [step, setStep] = useState(0)
+  const [maxStep, setMaxStep] = useState(0)
 
   const [githubToken, setGithubToken] = useState('')
   const [githubUser, setGithubUser] = useState(null)
@@ -276,7 +277,7 @@ export default function SetupWizard({ onComplete, isReconfigure = false }) {
               <button
                 key={item.title}
                 type="button"
-                disabled={index > step}
+                disabled={index > maxStep}
                 onClick={() => setStep(index)}
                 className={`wizard-step-item w-full ${isActive ? 'is-active' : ''} ${isComplete ? 'is-complete' : ''}`}
               >
@@ -602,7 +603,7 @@ export default function SetupWizard({ onComplete, isReconfigure = false }) {
           {step < STEPS.length - 1 ? (
             <button
               type="button"
-              onClick={() => setStep((prev) => prev + 1)}
+              onClick={() => { setStep((prev) => { const next = prev + 1; setMaxStep((m) => Math.max(m, next)); return next }); }}
               disabled={!canNext()}
               className="primary-button"
             >
