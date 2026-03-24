@@ -1,54 +1,73 @@
 @import "tailwindcss";
 
+/* ================================================================
+   디자인 토큰 (Design Tokens)
+   - 모든 색상/폰트는 여기서 관리. 수정 시 전체 앱에 반영됨.
+   - Tailwind에서 bg-surface, text-fg 등으로 참조.
+   ================================================================ */
+
+/* ── 라이트 테마 ── */
 :root {
   color-scheme: light;
+
+  /* 폰트 */
   --font-ui-sans: "Plus Jakarta Sans", "Pretendard Variable", "Pretendard", "Inter", "Segoe UI", sans-serif;
   --font-ui-mono: "JetBrains Mono", "IBM Plex Mono", "SFMono-Regular", monospace;
 
-  --c-bg: #f7f4ec;
-  --c-bg-elevated: #fffdf8;
-  --c-bg-tertiary: #f0ebe1;
-  --c-bg-hover: #e9e2d7;
-  --c-bg-active: #ded6ca;
-  --c-bg-muted: #efe7da;
+  /* 배경 (surface) — 밝은 쪽에서 어두운 쪽 순서 */
+  --c-bg: #f7f4ec;                /* 기본 배경 */
+  --c-bg-elevated: #fffdf8;       /* 카드, 패널 배경 */
+  --c-bg-tertiary: #f0ebe1;       /* 입력 필드, 보조 영역 */
+  --c-bg-hover: #e9e2d7;          /* 호버 상태 */
+  --c-bg-active: #ded6ca;         /* 클릭/비활성 상태 */
+  --c-bg-muted: #efe7da;          /* 음소거 배경 */
 
-  --c-fg: #1f1f1b;
-  --c-fg-secondary: #34322d;
-  --c-fg-tertiary: #5d584f;
-  --c-fg-muted: #756e64;
-  --c-fg-faint: #a29a8e;
+  /* 텍스트 (foreground) — 진한 쪽에서 옅은 쪽 순서 */
+  --c-fg: #1f1f1b;                /* 기본 텍스트 */
+  --c-fg-secondary: #34322d;      /* 보조 텍스트 */
+  --c-fg-tertiary: #5d584f;       /* 3차 텍스트 */
+  --c-fg-muted: #756e64;          /* 음소거 텍스트 */
+  --c-fg-faint: #a29a8e;          /* 매우 옅은 텍스트, 라벨 */
 
-  --c-edge: #ddd3c5;
-  --c-edge-strong: #cbbfad;
-  --c-edge-focus: #a39583;
+  /* 테두리 (edge) */
+  --c-edge: #ddd3c5;              /* 기본 테두리 */
+  --c-edge-strong: #cbbfad;       /* 강조 테두리 */
+  --c-edge-focus: #a39583;        /* 포커스 테두리 */
 
+  /* 액센트 (accent) — 주요 액션, 링크 */
   --c-accent: #226a86;
   --c-accent-hover: #1a576d;
   --c-accent-text: #226a86;
-  --c-accent-soft: rgba(34, 106, 134, 0.12);
-  --c-accent-soft-h: rgba(34, 106, 134, 0.18);
+  --c-accent-soft: rgba(34, 106, 134, 0.12);   /* 소프트 배경 */
+  --c-accent-soft-h: rgba(34, 106, 134, 0.18); /* 소프트 호버 */
 
+  /* 성공 (ok) — 동기화 완료, 연결 확인 */
   --c-ok: #0c7a67;
   --c-ok-hover: #096958;
   --c-ok-text: #0c7a67;
   --c-ok-soft: rgba(12, 122, 103, 0.12);
   --c-ok-soft-h: rgba(12, 122, 103, 0.18);
 
+  /* 오류 (err) — 에러, 삭제, 중지 */
   --c-err: #ca5252;
   --c-err-hover: #a63f3f;
   --c-err-text: #ca5252;
   --c-err-soft: rgba(202, 82, 82, 0.12);
 
+  /* 경고 (warn) */
   --c-warn: #c19007;
   --c-warn-text: #a87400;
 
-  --c-panel: rgba(255, 253, 248, 0.82);
-  --c-panel-strong: rgba(255, 255, 255, 0.96);
+  /* 패널/카드 공통 */
+  --c-panel: rgba(255, 253, 248, 0.82);        /* 카드 배경 (반투명) */
+  --c-panel-strong: rgba(255, 255, 255, 0.96);  /* 카드 상단 그라디언트 */
   --c-shadow: 0 30px 70px rgba(31, 31, 27, 0.08);
 }
 
+/* ── 다크 테마 (.dark 클래스로 전환) ── */
 .dark {
   color-scheme: dark;
+
   --c-bg: #141515;
   --c-bg-elevated: #1a1c1c;
   --c-bg-tertiary: #232526;
@@ -91,10 +110,17 @@
   --c-shadow: 0 36px 90px rgba(0, 0, 0, 0.34);
 }
 
+/* ================================================================
+   Tailwind 테마 매핑
+   - CSS 변수를 Tailwind 유틸리티 클래스로 연결.
+   - 예: bg-surface → var(--c-bg), text-accent → var(--c-accent)
+   ================================================================ */
+
 @theme {
   --font-sans: var(--font-ui-sans);
   --font-mono: var(--font-ui-mono);
 
+  /* 배경 */
   --color-surface: var(--c-bg);
   --color-surface-elevated: var(--c-bg-elevated);
   --color-surface-tertiary: var(--c-bg-tertiary);
@@ -102,36 +128,46 @@
   --color-surface-active: var(--c-bg-active);
   --color-surface-muted: var(--c-bg-muted);
 
+  /* 텍스트 */
   --color-fg: var(--c-fg);
   --color-fg-secondary: var(--c-fg-secondary);
   --color-fg-tertiary: var(--c-fg-tertiary);
   --color-fg-muted: var(--c-fg-muted);
   --color-fg-faint: var(--c-fg-faint);
 
+  /* 테두리 */
   --color-edge: var(--c-edge);
   --color-edge-strong: var(--c-edge-strong);
   --color-edge-focus: var(--c-edge-focus);
 
+  /* 액센트 */
   --color-accent: var(--c-accent);
   --color-accent-hover: var(--c-accent-hover);
   --color-accent-text: var(--c-accent-text);
   --color-accent-soft: var(--c-accent-soft);
   --color-accent-soft-h: var(--c-accent-soft-h);
 
+  /* 성공 */
   --color-ok: var(--c-ok);
   --color-ok-hover: var(--c-ok-hover);
   --color-ok-text: var(--c-ok-text);
   --color-ok-soft: var(--c-ok-soft);
   --color-ok-soft-h: var(--c-ok-soft-h);
 
+  /* 오류 */
   --color-err: var(--c-err);
   --color-err-hover: var(--c-err-hover);
   --color-err-text: var(--c-err-text);
   --color-err-soft: var(--c-err-soft);
 
+  /* 경고 */
   --color-warn: var(--c-warn);
   --color-warn-text: var(--c-warn-text);
 }
+
+/* ================================================================
+   글로벌 리셋 & 기본 스타일
+   ================================================================ */
 
 * {
   box-sizing: border-box;
@@ -149,7 +185,7 @@ html {
 
 body {
   margin: 0;
-  overflow: hidden;
+  overflow: hidden;     /* SPA 뷰포트 고정 — 내부 스크롤만 허용 */
   color: var(--c-fg);
   font-family: var(--font-ui-sans);
   background: var(--c-bg);
@@ -166,6 +202,7 @@ a {
   text-decoration: none;
 }
 
+/* 폼 요소에 부모 폰트 상속 */
 button,
 input,
 select,
@@ -176,6 +213,10 @@ textarea {
 button {
   cursor: pointer;
 }
+
+/* ================================================================
+   폼 입력 필드
+   ================================================================ */
 
 input[type="text"],
 input[type="password"],
@@ -200,7 +241,7 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--c-accent);
-  box-shadow: 0 0 0 4px var(--c-accent-soft);
+  box-shadow: 0 0 0 4px var(--c-accent-soft);  /* 포커스 링 */
 }
 
 input::placeholder,
@@ -213,6 +254,11 @@ textarea {
   resize: vertical;
 }
 
+/* ================================================================
+   레이아웃 컴포넌트
+   ================================================================ */
+
+/* 앱 전체를 감싸는 외부 프레임 (반투명 카드 + 그림자) */
 .shell-frame {
   position: relative;
   border: 1px solid var(--c-edge);
@@ -222,6 +268,7 @@ textarea {
   backdrop-filter: blur(22px);
 }
 
+/* 일반 카드 패널 */
 .panel {
   border: 1px solid var(--c-edge);
   border-radius: 28px;
@@ -234,16 +281,23 @@ textarea {
   box-shadow: 0 22px 48px rgba(0, 0, 0, 0.18);
 }
 
+/* 패딩이 넉넉한 패널 */
 .panel-spacious {
   padding: clamp(1.3rem, 2.3vw, 2rem);
 }
 
+/* 배경이 단순한 패널 (backdrop-filter 없음) */
 .panel-subtle {
   border: 1px solid var(--c-edge);
   border-radius: 28px;
   background: var(--c-bg-elevated);
 }
 
+/* ================================================================
+   타이포그래피 유틸리티
+   ================================================================ */
+
+/* 섹션 상단 소제목 (OPERATIONS, STEP 1 등) */
 .eyebrow {
   font-size: 0.72rem;
   font-weight: 700;
@@ -252,18 +306,29 @@ textarea {
   color: var(--c-fg-faint);
 }
 
-.subtle-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.65rem 0.9rem;
-  border: 1px solid var(--c-edge);
-  border-radius: 999px;
-  background: var(--c-bg-elevated);
-  color: var(--c-fg-muted);
-  font-size: 0.86rem;
+/* 대시보드 메트릭 라벨 (전체 리포, 생성 등) */
+.metric-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--c-fg-faint);
 }
 
+/* 대시보드 메트릭 숫자 */
+.metric-value {
+  font-size: clamp(1.65rem, 2vw, 2.1rem);
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  color: var(--c-fg);
+}
+
+/* ================================================================
+   버튼
+   ================================================================ */
+
+/* 버튼 공통 */
 .primary-button,
 .secondary-button,
 .theme-toggle {
@@ -283,6 +348,7 @@ textarea {
     box-shadow 0.18s ease;
 }
 
+/* 주요 액션 버튼 (동기화, 저장 등) */
 .primary-button {
   border: 1px solid transparent;
   background: var(--c-accent);
@@ -294,6 +360,14 @@ textarea {
   transform: translateY(-1px);
 }
 
+.primary-button:disabled {
+  background: var(--c-bg-active);
+  color: var(--c-fg-muted);
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 보조 버튼 (취소, 뒤로가기 등) */
 .secondary-button {
   border: 1px solid var(--c-edge);
   background: var(--c-bg-elevated);
@@ -306,19 +380,16 @@ textarea {
   transform: translateY(-1px);
 }
 
-.primary-button:disabled {
-  background: var(--c-bg-active);
-  color: var(--c-fg-muted);
-  cursor: not-allowed;
-  transform: none;
-}
-
 .secondary-button:disabled,
 .theme-toggle:disabled {
   opacity: 0.55;
   cursor: not-allowed;
   transform: none;
 }
+
+/* ================================================================
+   테마 토글 버튼
+   ================================================================ */
 
 .theme-toggle {
   border: 1px solid var(--c-edge);
@@ -327,6 +398,7 @@ textarea {
   border-radius: 999px;
 }
 
+/* 토글 내부 아이콘 원형 배경 */
 .theme-toggle__icon {
   display: inline-flex;
   align-items: center;
@@ -337,6 +409,26 @@ textarea {
   background: var(--c-bg-tertiary);
   color: var(--c-fg);
 }
+
+/* ================================================================
+   상태 표시 칩 (대기 중, 동기화 중 등)
+   ================================================================ */
+
+.subtle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--c-edge);
+  border-radius: 999px;
+  background: var(--c-bg-elevated);
+  color: var(--c-fg-muted);
+  font-size: 0.86rem;
+}
+
+/* ================================================================
+   사이드바 네비게이션 아이템
+   ================================================================ */
 
 .nav-item {
   display: flex;
@@ -361,21 +453,9 @@ textarea {
   border-color: transparent;
 }
 
-.metric-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--c-fg-faint);
-}
-
-.metric-value {
-  font-size: clamp(1.65rem, 2vw, 2.1rem);
-  line-height: 1;
-  font-weight: 700;
-  letter-spacing: -0.05em;
-  color: var(--c-fg);
-}
+/* ================================================================
+   알림 배너 & 인라인 메시지
+   ================================================================ */
 
 .notice-banner,
 .notice-inline {
@@ -390,12 +470,14 @@ textarea {
   margin: 1rem 1.25rem 0;
 }
 
+/* 정보 알림 (파란색 계열) */
 .notice-banner.is-info {
   border-color: transparent;
   background: var(--c-accent-soft);
   color: var(--c-accent-text);
 }
 
+/* 에러 알림 (빨간색 계열) */
 .notice-banner.is-error,
 .notice-inline.is-error {
   background: var(--c-err-soft);
@@ -403,12 +485,18 @@ textarea {
   border-color: transparent;
 }
 
+/* 성공 알림 (초록색 계열) */
 .notice-inline.is-success {
   background: var(--c-ok-soft);
   color: var(--c-ok-text);
   border-color: transparent;
 }
 
+/* ================================================================
+   설정 마법사 (SetupWizard)
+   ================================================================ */
+
+/* 좌측 스텝 목록 아이템 */
 .wizard-step-item {
   display: flex;
   align-items: flex-start;
@@ -432,20 +520,24 @@ textarea {
   opacity: 0.65;
 }
 
+/* 현재 활성 스텝 */
 .wizard-step-item.is-active {
   background: var(--c-accent-soft);
 }
 
+/* 완료된 스텝 — 숫자 원형이 초록색 */
 .wizard-step-item.is-complete .wizard-step-index {
   background: var(--c-ok);
   color: white;
 }
 
+/* 활성 스텝 — 숫자 원형이 액센트색 */
 .wizard-step-item.is-active .wizard-step-index {
   background: var(--c-accent);
   color: white;
 }
 
+/* 스텝 번호 원형 (01, 02, 03...) */
 .wizard-step-index {
   display: inline-flex;
   align-items: center;
@@ -460,6 +552,11 @@ textarea {
   font-weight: 700;
 }
 
+/* ================================================================
+   로그 타임라인
+   ================================================================ */
+
+/* 타임라인 컨테이너 — 좌측 세로선 */
 .log-rail {
   position: relative;
 }
@@ -474,6 +571,7 @@ textarea {
   background: var(--c-edge);
 }
 
+/* 타임라인 도트 (각 로그 항목의 원형 마커) */
 .log-dot {
   position: relative;
   z-index: 1;
@@ -486,26 +584,26 @@ textarea {
   background: var(--c-bg-tertiary);
 }
 
-.log-dot.is-info {
-  background: var(--c-accent);
-}
+.log-dot.is-info    { background: var(--c-accent); }
+.log-dot.is-success { background: var(--c-ok); }
+.log-dot.is-error   { background: var(--c-err); }
+.log-dot.is-neutral { background: var(--c-fg-faint); }
 
-.log-dot.is-success {
-  background: var(--c-ok);
-}
+/* ================================================================
+   유틸리티
+   ================================================================ */
 
-.log-dot.is-error {
-  background: var(--c-err);
-}
-
-.log-dot.is-neutral {
-  background: var(--c-fg-faint);
-}
-
+/* 동기화 진행 중 상태 표시 펄스 애니메이션 */
 .status-pulse {
   animation: pulse-soft 1.8s ease-in-out infinite;
 }
 
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.72; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.25); }
+}
+
+/* 스크롤 영역 (스크롤바 숨김) */
 .scroll-pane {
   min-height: 0;
   overflow: auto;
@@ -518,17 +616,9 @@ textarea {
   display: none;
 }
 
-
-@keyframes pulse-soft {
-  0%, 100% {
-    opacity: 0.72;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.25);
-  }
-}
+/* ================================================================
+   반응형
+   ================================================================ */
 
 @media (max-width: 640px) {
   .shell-frame,
