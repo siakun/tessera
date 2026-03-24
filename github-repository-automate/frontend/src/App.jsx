@@ -30,9 +30,12 @@ const TABS = [
 export default function App() {
   const [configured, setConfigured] = useState(null)
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [showSetup, setShowSetup] = useState(window.location.pathname === '/setup')
   const [dashboard, setDashboard] = useState(null)
   const [logs, setLogs] = useState([])
   const [syncing, setSyncing] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [notice, setNotice] = useState(null)
   const pollRef = useRef(null)
 
@@ -100,8 +103,10 @@ export default function App() {
         clearInterval(pollRef.current)
         pollRef.current = null
         setSyncing(false)
+        setCancelling(false)
         fetchLogs()
-        showNotice('info', '동기화가 완료되었습니다.')
+        const msg = data.last_sync_result?.cancelled ? '동기화가 중지되었습니다.' : '동기화가 완료되었습니다.'
+        showNotice('info', msg)
       }
     }, 3000)
   }, [fetchDashboard, fetchLogs, showNotice])
@@ -153,9 +158,22 @@ export default function App() {
     }
   }
 
+  const handleCancelSync = async () => {
+    setShowCancelConfirm(false)
+    setCancelling(true)
+    try {
+      await fetch('/api/sync/cancel', { method: 'POST' })
+    } catch {
+      setCancelling(false)
+      showNotice('error', '중지 요청에 실패했습니다.')
+    }
+  }
+
   const handleSetupComplete = () => {
     setConfigured(true)
+    setShowSetup(false)
     setActiveTab('dashboard')
+    window.history.replaceState(null, '', '/')
     fetchDashboard().then((data) => {
       if (data?.sync_in_progress) {
         setSyncing(true)
@@ -179,7 +197,7 @@ export default function App() {
     )
   }
 
-  if (!configured) {
+  if (!configured || showSetup) {
     return (
       <ScreenFrame>
         <div className="mx-auto h-full w-full max-w-[1540px] p-3 sm:p-5">
@@ -192,15 +210,28 @@ export default function App() {
                     Notion Automate
                   </h1>
                   <p className="mt-3 max-w-2xl text-sm leading-6 text-fg-muted">
-                    단순한 설정 폼 대신, 실제 운영 워크플로에 맞춘 단계형 온보딩으로 자동화를 연결합니다.
+                    {configured
+                      ? '기존 설정을 단계별로 다시 구성합니다.'
+                      : '실제 운영 워크플로에 맞춘 단계형 온보딩으로 자동화를 연결합니다.'}
                   </p>
                 </div>
-                <ThemeToggle />
+                <div className="flex items-center gap-3">
+                  {configured && (
+                    <button
+                      type="button"
+                      onClick={() => { setShowSetup(false); window.history.replaceState(null, '', '/') }}
+                      className="secondary-button"
+                    >
+                      대시보드로 돌아가기
+                    </button>
+                  )}
+                  <ThemeToggle />
+                </div>
               </div>
             </header>
 
             <main className="min-h-0 flex-1 overflow-hidden px-5 py-5 sm:px-8 sm:py-6">
-              <SetupWizard onComplete={handleSetupComplete} />
+              <SetupWizard onComplete={handleSetupComplete} isReconfigure={!!configured} />
             </main>
           </div>
         </div>
@@ -210,10 +241,16 @@ export default function App() {
 
   const currentTab = TABS.find((tab) => tab.key === activeTab) ?? TABS[0]
   const accountCount = dashboard?.accounts?.length ?? 0
-  const statusLabel = syncing ? '동기화 진행 중' : '대기 중'
+  const statusLabel = cancelling ? '중지하는 중' : syncing ? '동기화 진행 중' : '대기 중'
 
   return (
     <ScreenFrame>
+      {showCancelConfirm && (
+        <CancelConfirmDialog
+          onConfirm={handleCancelSync}
+          onCancel={() => setShowCancelConfirm(false)}
+        />
+      )}
       <div className="mx-auto flex h-full w-full max-w-[1680px] p-3 sm:p-5">
         <div className="shell-frame grid h-full w-full overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)]">
           <aside className="flex h-full flex-col overflow-hidden border-b border-edge px-5 py-5 sm:px-6 lg:border-b-0 lg:border-r lg:py-7">
@@ -271,15 +308,28 @@ export default function App() {
 
                   {/* 동기화 버튼 + 호버 팝오버 */}
                   <div className="group relative">
-                    <button
-                      type="button"
-                      onClick={handleSync}
-                      disabled={syncing}
-                      className="primary-button"
-                    >
-                      {syncing && <Spinner className="h-4 w-4" />}
-                      {syncing ? '동기화 중' : '전체 동기화'}
-                    </button>
+                    {cancelling ? (
+                      <button type="button" disabled className="primary-button opacity-70">
+                        <Spinner className="h-4 w-4" /> 중지하는 중
+                      </button>
+                    ) : syncing ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowCancelConfirm(true)}
+                        className="primary-button group/sync"
+                      >
+                        <span className="flex items-center gap-2 group-hover/sync:hidden">
+                          <Spinner className="h-4 w-4" /> 동기화 중
+                        </span>
+                        <span className="hidden items-center gap-2 group-hover/sync:flex">
+                          <StopIcon /> 동기화 중지
+                        </span>
+                      </button>
+                    ) : (
+                      <button type="button" onClick={handleSync} className="primary-button">
+                        전체 동기화
+                      </button>
+                    )}
                     <div className="pointer-events-none absolute right-0 top-full z-50 mt-2 min-w-[180px] rounded-2xl border border-edge bg-surface-elevated p-3 text-sm opacity-0 shadow-lg transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
                       <div className="flex items-center justify-between">
                         <span className="text-fg-muted">마지막 동기화:</span>
@@ -333,6 +383,31 @@ export default function App() {
         </div>
       </div>
     </ScreenFrame>
+  )
+}
+
+function CancelConfirmDialog({ onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40" onClick={onCancel}>
+      <div className="panel-subtle mx-4 w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+        <h3 className="text-lg font-semibold text-fg">동기화를 중지할까요?</h3>
+        <p className="mt-2 text-sm leading-6 text-fg-muted">
+          현재 진행 중인 동기화가 다음 항목 처리 전에 중단됩니다. 이미 처리된 항목은 유지됩니다.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={onCancel} className="secondary-button">계속 진행</button>
+          <button type="button" onClick={onConfirm} className="primary-button" style={{ background: 'var(--c-err)' }}>중지</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function StopIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+    </svg>
   )
 }
 
