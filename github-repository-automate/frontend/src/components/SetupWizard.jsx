@@ -47,7 +47,7 @@ function getErrorMessage(error, fallback) {
   return error instanceof Error ? error.message : fallback
 }
 
-export default function SetupWizard({ onComplete }) {
+export default function SetupWizard({ onComplete, isReconfigure = false }) {
   const [step, setStep] = useState(0)
 
   const [githubToken, setGithubToken] = useState('')
@@ -209,6 +209,9 @@ export default function SetupWizard({ onComplete }) {
   }
 
   const handleSave = async () => {
+    if (isReconfigure && !window.confirm('기존 설정을 덮어씁니다. 계속하시겠습니까?')) {
+      return
+    }
     setSaving(true)
     setSaveError('')
 
@@ -350,7 +353,10 @@ export default function SetupWizard({ onComplete }) {
 
               {githubUser && (
                 <StatusMessage tone="success">
-                  연결 완료: {githubUser.name || githubUser.login} ({githubUser.login})
+                  계정 연결이 확인되었습니다. API 키가 유효합니다.
+                  <span className="block pt-1 text-xs opacity-80">
+                    {githubUser.name || githubUser.login} ({githubUser.login})
+                  </span>
                 </StatusMessage>
               )}
 
@@ -420,7 +426,7 @@ export default function SetupWizard({ onComplete }) {
 
                     {accountPreviews[index] && (
                       <StatusMessage tone="success">
-                        감지된 저장소 {accountPreviews[index].count_preview}개
+                        연결 확인 — 저장소 {accountPreviews[index].count_preview}개 이상 감지
                         {accountPreviews[index].repos?.length > 0 && (
                           <span className="block pt-1 text-xs opacity-80">
                             {accountPreviews[index].repos.join(', ')}
@@ -485,9 +491,9 @@ export default function SetupWizard({ onComplete }) {
 
               {notionResult && (
                 <StatusMessage tone="success">
-                  연결 완료: <strong>{notionResult.title || '제목 없음'}</strong>
-                  <span className="mt-2 block text-xs opacity-80">
-                    감지된 속성: {Object.entries(notionResult.properties || {}).map(([name, type]) => `${name} (${type})`).join(', ')}
+                  데이터베이스 연결이 확인되었습니다. 토큰이 유효합니다.
+                  <span className="block pt-1 text-xs opacity-80">
+                    DB: {notionResult.title || '제목 없음'} · 속성 {Object.keys(notionResult.properties || {}).length}개 감지
                   </span>
                 </StatusMessage>
               )}
