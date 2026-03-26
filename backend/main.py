@@ -4,6 +4,12 @@ Tessera 애플리케이션 엔트리포인트.
 - 플러그인을 자동 발견하여 라우터를 등록한다.
 - React SPA(index.html)를 서빙한다.
 - 설정 미완료 시 React가 /setup으로 리다이렉트
+
+라우터 등록 순서가 중요하다:
+  1. config 로드
+  2. 플러그인 디스커버리 (라우터 등록)
+  3. Core 라우터
+  4. SPA catch-all (반드시 마지막)
 """
 
 import logging
@@ -26,20 +32,17 @@ app = FastAPI(title="Tessera")
 
 STATIC_DIR = Path(__file__).parent / "static"
 
+# ── 1. Config 로드 ──
+_config = try_load_config()
+if _config:
+    logger.info("config.toml 로드 완료")
+else:
+    logger.warning("config.toml 없음 — 설정 마법사 모드로 시작합니다.")
 
-@app.on_event("startup")
-async def startup():
-    """서버 시작 시 config.toml을 로드하고 플러그인을 등록한다."""
-    config = try_load_config()
-    if config:
-        logger.info("config.toml 로드 완료")
-    else:
-        logger.warning("config.toml 없음 — 설정 마법사 모드로 시작합니다.")
+# ── 2. 플러그인 디스커버리 (라우터가 SPA catch-all보다 먼저 등록되어야 한다) ──
+discover_plugins(app)
 
-    discover_plugins(app)
-
-
-# Core 라우터
+# ── 3. Core 라우터 ──
 from backend.routers import plugins as plugins_router  # noqa: E402
 
 app.include_router(plugins_router.router)
@@ -54,7 +57,7 @@ async def health():
     }
 
 
-# React SPA 정적 파일 서빙
+# ── 4. React SPA 정적 파일 서빙 (반드시 마지막) ──
 if STATIC_DIR.exists() and (STATIC_DIR / "assets").exists():
     app.mount("/assets", StaticFiles(directory=str(STATIC_DIR / "assets")), name="assets")
 
