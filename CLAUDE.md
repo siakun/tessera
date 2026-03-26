@@ -141,11 +141,22 @@ const plugins = [myPlugin]
 | prop drilling 3단계 이상 + 드문 변경 | Context API |
 | 빈번한 변경 + 다수 플러그인 간 공유 | Zustand (미도입, 필요 시) |
 
+## 테스트
+
+```bash
+python -m pytest -v          # 백엔드 (프로젝트 루트에서)
+cd frontend && npm test      # 프론트엔드
+```
+
+- **Backend**: pytest. `backend/tests/`에 소스 구조를 미러링하여 배치.
+- **Frontend**: Vitest. 소스 파일 옆에 `*.test.js` co-located.
+- **CI/CD**: `.github/workflows/test.yml`이 push/PR마다 양쪽 테스트를 자동 실행.
+- 순수 함수와 상태 로직을 우선 테스트. 외부 API 호출(GitHub, Notion)은 모킹.
+
 ## 하지 않는 것
 
 - Microservices (NAS Docker 단일 컨테이너)
 - React Router (탭 수준에 과함)
 - Redux (보일러플레이트 과함, Zustand 우선)
 - TypeScript (별도 이니셔티브)
-- Testing framework (별도 이니셔티브)
 - Feature 내부 types/store/ 세분화 (파일 2-3개면 flat 유지)
