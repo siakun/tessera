@@ -52,7 +52,7 @@ export default function App() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/setup/status')
+      const res = await fetch('/api/plugins/github-sync/status')
       const data = await res.json()
       setConfigured(data.configured)
       return data.configured
@@ -64,7 +64,7 @@ export default function App() {
 
   const fetchDashboard = useCallback(async () => {
     try {
-      const res = await fetch('/api/dashboard')
+      const res = await fetch('/api/plugins/github-sync/dashboard')
       if (!res.ok) return null
       const data = await res.json()
       setDashboard(data)
@@ -77,7 +77,7 @@ export default function App() {
 
   const fetchLogs = useCallback(async () => {
     try {
-      const res = await fetch('/api/sync/logs')
+      const res = await fetch('/api/plugins/github-sync/sync/logs')
       if (!res.ok) return
       const data = await res.json()
       setLogs(data.logs || [])
@@ -144,7 +144,7 @@ export default function App() {
     showNotice('info', '백그라운드 동기화를 시작했습니다.')
 
     try {
-      const res = await fetch('/api/sync/trigger', { method: 'POST' })
+      const res = await fetch('/api/plugins/github-sync/sync/trigger', { method: 'POST' })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.detail || '동기화를 시작할 수 없습니다.')
@@ -162,7 +162,7 @@ export default function App() {
     setShowCancelConfirm(false)
     setCancelling(true)
     try {
-      await fetch('/api/sync/cancel', { method: 'POST' })
+      await fetch('/api/plugins/github-sync/sync/cancel', { method: 'POST' })
     } catch {
       setCancelling(false)
       showNotice('error', '중지 요청에 실패했습니다.')

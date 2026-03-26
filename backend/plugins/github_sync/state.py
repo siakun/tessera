@@ -1,8 +1,8 @@
 """
-앱 상태 관리.
+GitHub Sync 플러그인 상태 관리.
 
 동기화 상태, 로그, 진행 중 여부를 추적한다.
-대시보드 API에서 이 상태를 조회하고, sync_service에서 업데이트한다.
+플러그인 라우터에서 이 상태를 조회하고, service에서 업데이트한다.
 """
 
 import time
@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-class AppState:
+class GitHubSyncState:
     configured: bool = False
     last_sync_time: float | None = None
     last_sync_result: dict | None = None
@@ -34,4 +34,4 @@ class AppState:
         self.add_log({"type": "sync_complete", "result": result})
 
 
-app_state = AppState()
+plugin_state = GitHubSyncState()

@@ -79,7 +79,7 @@ export default function SetupWizard({ onComplete, isReconfigure = false }) {
     setGithubUser(null)
 
     try {
-      const res = await fetch('/api/setup/test-github', {
+      const res = await fetch('/api/plugins/github-sync/setup/test-github', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: githubToken }),
@@ -139,7 +139,7 @@ export default function SetupWizard({ onComplete, isReconfigure = false }) {
     setAccountPreviews((prev) => ({ ...prev, [index]: null }))
 
     try {
-      const res = await fetch('/api/setup/test-github-account', {
+      const res = await fetch('/api/plugins/github-sync/setup/test-github-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -172,7 +172,7 @@ export default function SetupWizard({ onComplete, isReconfigure = false }) {
     setNotionResult(null)
 
     try {
-      const res = await fetch('/api/setup/test-notion', {
+      const res = await fetch('/api/plugins/github-sync/setup/test-notion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -216,7 +216,7 @@ export default function SetupWizard({ onComplete, isReconfigure = false }) {
     setSaveError('')
 
     try {
-      const res = await fetch('/api/setup/save', {
+      const res = await fetch('/api/plugins/github-sync/setup/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

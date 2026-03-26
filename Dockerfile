@@ -11,8 +11,8 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY app/ ./app/
+COPY backend/ ./backend/
 # React 빌드 결과물 덮어쓰기
-COPY --from=frontend /frontend/dist/ ./app/static/
+COPY --from=frontend /frontend/dist/ ./backend/static/
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

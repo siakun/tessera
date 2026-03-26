@@ -76,7 +76,7 @@ export default function SettingsTab() {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/settings')
+      const res = await fetch('/api/plugins/github-sync/settings')
       if (!res.ok) throw new Error('설정을 불러올 수 없습니다.')
 
       const data = await res.json()
@@ -135,7 +135,7 @@ export default function SettingsTab() {
     setSaving(true)
 
     try {
-      const res = await fetch('/api/settings', {
+      const res = await fetch('/api/plugins/github-sync/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
