@@ -1,4 +1,8 @@
 import { useState, useMemo } from 'react'
+import Field from '../shared/components/Field'
+import StatusMessage from '../shared/components/StatusMessage'
+import SummaryRow from '../shared/components/SummaryRow'
+import { PROPERTY_FIELDS, createEmptyAccount } from '../shared/constants/formHelpers'
 
 const STEPS = [
   {
@@ -22,20 +26,6 @@ const STEPS = [
     description: '최종 구성을 검토하고 설정 파일을 저장해 대시보드를 활성화합니다.',
   },
 ]
-
-const PROPERTY_FIELDS = [
-  { key: 'name', label: '이름', defaultMatch: 'Name' },
-  { key: 'url', label: 'URL', defaultMatch: 'URL' },
-  { key: 'description', label: '설명', defaultMatch: 'Description' },
-  { key: 'last_commit', label: '마지막 커밋', defaultMatch: 'Last Commit' },
-  { key: 'commit_count', label: '커밋 수', defaultMatch: 'Commit Count' },
-  { key: 'visibility', label: '가시성', defaultMatch: 'Visibility' },
-  { key: 'repo_id', label: '저장소 ID', defaultMatch: 'repository-id' },
-]
-
-function createEmptyAccount() {
-  return { name: '', type: 'user', label: '' }
-}
 
 function maskToken(token) {
   if (!token) return '미입력'
@@ -629,38 +619,6 @@ function WizardSection({ children }) {
   return (
     <div className="space-y-4">
       {children}
-    </div>
-  )
-}
-
-function Field({ label, children }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-faint">
-        {label}
-      </span>
-      {children}
-    </label>
-  )
-}
-
-function StatusMessage({ tone, children }) {
-  const toneClass = tone === 'error'
-    ? 'border-err-soft bg-err-soft text-err-text'
-    : 'border-ok-soft bg-ok-soft text-ok-text'
-
-  return (
-    <div className={`rounded-[20px] border px-4 py-3 text-sm leading-6 ${toneClass}`}>
-      {children}
-    </div>
-  )
-}
-
-function SummaryRow({ label, value }) {
-  return (
-    <div className="flex items-center justify-between gap-4 border-b border-edge pb-3 last:border-b-0 last:pb-0">
-      <span className="text-sm text-fg-muted">{label}</span>
-      <span className="text-sm font-semibold text-fg">{value}</span>
     </div>
   )
 }

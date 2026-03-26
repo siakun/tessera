@@ -6,7 +6,7 @@ import {
   formatLogTitle,
   getLogMeta,
   sortLogs,
-} from '../utils/formatters'
+} from '../shared/utils/formatters'
 
 export default function DashboardTab({ dashboard, logs, syncing, onNavigate }) {
   if (!dashboard) {

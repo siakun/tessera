@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-
-const PROPERTY_FIELDS = [
-  { key: 'name', label: '이름', placeholder: 'Name' },
-  { key: 'url', label: 'URL', placeholder: 'URL' },
-  { key: 'description', label: '설명', placeholder: 'Description' },
-  { key: 'last_commit', label: '마지막 커밋', placeholder: 'Last Commit' },
-  { key: 'commit_count', label: '커밋 수', placeholder: 'Commit Count' },
-  { key: 'visibility', label: '가시성', placeholder: 'Visibility' },
-  { key: 'repo_id', label: '저장소 ID', placeholder: 'repository-id' },
-]
+import Field from '../shared/components/Field'
+import Spinner from '../shared/components/Spinner'
+import SummaryRow from '../shared/components/SummaryRow'
+import { PROPERTY_FIELDS, createEmptyAccount } from '../shared/constants/formHelpers'
 
 const DEFAULT_PROPERTIES = PROPERTY_FIELDS.reduce((result, field) => {
   result[field.key] = field.placeholder
@@ -19,10 +13,6 @@ const ACCOUNT_TYPES = [
   { value: 'user', label: 'User' },
   { value: 'org', label: 'Organization' },
 ]
-
-function createEmptyAccount() {
-  return { name: '', type: 'user', label: '' }
-}
 
 function createInitialForm() {
   return {
@@ -157,10 +147,7 @@ export default function SettingsTab() {
     return (
       <div className="panel panel-spacious fade-in flex h-full items-center justify-center text-center">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-tertiary text-fg-muted">
-          <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
+          <Spinner className="h-5 w-5" />
         </div>
         <h2 className="mt-5 text-xl font-semibold tracking-tight text-fg">
           설정을 불러오는 중입니다
@@ -390,17 +377,6 @@ function ConfigSection({ title, description, children }) {
   )
 }
 
-function Field({ label, children }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-faint">
-        {label}
-      </span>
-      {children}
-    </label>
-  )
-}
-
 function SummaryTile({ label, value }) {
   return (
     <div className="rounded-[24px] border border-edge bg-surface/70 px-4 py-4">
@@ -412,11 +388,3 @@ function SummaryTile({ label, value }) {
   )
 }
 
-function SummaryRow({ label, value }) {
-  return (
-    <div className="flex items-center justify-between gap-4 border-b border-edge pb-3 last:border-b-0 last:pb-0">
-      <span className="text-sm text-fg-muted">{label}</span>
-      <span className="text-sm font-semibold text-fg">{value}</span>
-    </div>
-  )
-}
