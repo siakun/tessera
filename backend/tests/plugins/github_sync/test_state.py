@@ -3,8 +3,8 @@
 from backend.plugins.github_sync.state import GitHubSyncState
 
 
-class TestGitHubSyncState:
-    def test_initial_state(self):
+class TestGitHubSync상태:
+    def test_초기_상태_기본값(self):
         state = GitHubSyncState()
         assert state.configured is False
         assert state.sync_in_progress is False
@@ -13,28 +13,28 @@ class TestGitHubSyncState:
         assert state.last_sync_result is None
         assert state.sync_logs == []
 
-    def test_add_log(self):
+    def test_로그_추가시_타임스탬프_자동_생성(self):
         state = GitHubSyncState()
         state.add_log({"type": "sync_start", "scope": "all"})
         assert len(state.sync_logs) == 1
         assert state.sync_logs[0]["type"] == "sync_start"
         assert "timestamp" in state.sync_logs[0]
 
-    def test_add_log_max_limit(self):
+    def test_로그_100개_초과시_오래된_항목_제거(self):
         state = GitHubSyncState()
         for i in range(150):
             state.add_log({"type": "test", "index": i})
         assert len(state.sync_logs) == state.MAX_LOGS
 
-    def test_add_log_preserves_recent(self):
+    def test_로그_순환버퍼_최신_항목_유지(self):
         state = GitHubSyncState()
         for i in range(150):
             state.add_log({"type": "test", "index": i})
-        # 가장 오래된 로그(index=0~49)는 잘리고, 최신(index=50~149)만 남아야 함
+        # index 0~49는 잘리고 50~149만 남음
         assert state.sync_logs[0]["index"] == 50
         assert state.sync_logs[-1]["index"] == 149
 
-    def test_record_sync(self):
+    def test_동기화_완료_기록(self):
         state = GitHubSyncState()
         result = {"total_repos": 10, "created": 3, "updated": 7}
         state.record_sync(result)
@@ -43,7 +43,7 @@ class TestGitHubSyncState:
         assert len(state.sync_logs) == 1
         assert state.sync_logs[0]["type"] == "sync_complete"
 
-    def test_record_sync_sets_timestamp(self):
+    def test_동기화_완료시_타임스탬프_양수(self):
         state = GitHubSyncState()
         state.record_sync({"total": 0})
         assert state.last_sync_time > 0
