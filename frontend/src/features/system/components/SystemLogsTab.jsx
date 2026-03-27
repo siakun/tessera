@@ -65,6 +65,10 @@ export default function SystemLogsTab() {
       document.removeEventListener('pointermove', onMove)
       document.removeEventListener('pointerup', onUp)
       dragRef.current = null
+      setWidths((cur) => {
+        console.log('column widths:', JSON.stringify(cur))
+        return cur
+      })
     }
 
     document.addEventListener('pointermove', onMove)
@@ -123,9 +127,11 @@ export default function SystemLogsTab() {
                 {/* 리사이즈 핸들 (flex 컬럼과 마지막 컬럼 제외) */}
                 {col.defaultWidth !== 0 && i < COLUMNS.length - 1 && (
                   <div
-                    className="absolute right-0 top-0 z-10 h-full w-2 cursor-col-resize hover:bg-accent/20 active:bg-accent/30"
+                    className="group/handle absolute -right-px top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
                     onPointerDown={(e) => handlePointerDown(i, e)}
-                  />
+                  >
+                    <span className="block h-3/5 w-px bg-edge/50 transition-colors group-hover/handle:bg-fg-muted group-active/handle:bg-accent" />
+                  </div>
                 )}
               </div>
             ))}
