@@ -42,6 +42,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            COMMIT_SHA=${{ github.sha }}
 
       - name: Trigger NAS deploy
         if: success() && secrets.NAS_WEBHOOK_URL != ''
