@@ -9,11 +9,11 @@ export default {
   // 메인 네비게이션에 추가될 탭
   tabs: [
     {
-      key: 'github-settings',
-      label: 'GitHub 설정',
-      title: 'GitHub 연결 설정',
-      description: 'GitHub, Notion, 속성 매핑 구성을 관리합니다.',
-      component: lazy(() => import('./components/SettingsTab')),
+      key: 'github-sync',
+      label: 'GitHub Sync',
+      title: 'GitHub Sync',
+      description: 'GitHub 리포지토리를 Notion에 동기화합니다. 설정과 로그를 관리합니다.',
+      component: lazy(() => import('./components/GitHubSyncTab')),
     },
   ],
 
