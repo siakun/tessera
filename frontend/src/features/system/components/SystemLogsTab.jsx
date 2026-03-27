@@ -9,11 +9,11 @@ const EVENT_LABELS = {
 }
 
 const COLUMNS = [
-  { key: 'time', label: '시간', defaultWidth: 60, minWidth: 40 },
-  { key: 'ip', label: 'IP', defaultWidth: 130, minWidth: 60 },
+  { key: 'time', label: '시간', defaultWidth: 49, minWidth: 40 },
+  { key: 'ip', label: 'IP', defaultWidth: 103, minWidth: 60 },
   { key: 'method', label: '메서드', defaultWidth: 50, minWidth: 40 },
   { key: 'path', label: '경로', defaultWidth: 0, minWidth: 100 },  // 0 = flex
-  { key: 'user', label: '사용자', defaultWidth: 140, minWidth: 60 },
+  { key: 'user', label: '사용자', defaultWidth: 152, minWidth: 60 },
   { key: 'event', label: '이벤트', defaultWidth: 70, minWidth: 50 },
 ]
 
