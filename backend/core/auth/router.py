@@ -87,6 +87,16 @@ async def auth_setup(req: AuthSetupRequest):
             content={"detail": "At least one email is required"},
         )
 
+    # Google OAuth 자격 증명 검증
+    redirect_uri = req.oauth_redirect_uri or "http://localhost/auth/callback"
+    validation_error = await _validate_google_credentials(
+        req.google_client_id.strip(),
+        req.google_client_secret.strip(),
+        redirect_uri.strip(),
+    )
+    if validation_error:
+        return JSONResponse(status_code=400, content={"detail": validation_error})
+
     # JWT secret 자동 생성
     jwt_secret = secrets.token_urlsafe(48)
 
@@ -233,6 +243,39 @@ def _get_redirect_uri(request: Request, cfg) -> str:
     if cfg.oauth_redirect_uri:
         return cfg.oauth_redirect_uri
     return str(request.base_url).rstrip("/") + "/auth/callback"
+
+
+async def _validate_google_credentials(
+    client_id: str, client_secret: str, redirect_uri: str,
+) -> str | None:
+    """Google 토큰 엔드포인트에 더미 요청을 보내 자격 증명을 검증한다.
+
+    invalid_client → Client ID 또는 Secret이 잘못됨
+    invalid_grant / redirect_uri_mismatch → 자격 증명은 유효 (코드만 더미)
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                GOOGLE_TOKEN_URL,
+                data={
+                    "code": "dummy_validation_code",
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "redirect_uri": redirect_uri,
+                    "grant_type": "authorization_code",
+                },
+            )
+            error_data = resp.json()
+            error_code = error_data.get("error", "")
+
+            if error_code == "invalid_client":
+                return "Google Client ID 또는 Client Secret이 올바르지 않습니다."
+
+            # invalid_grant, redirect_uri_mismatch 등은 자격 증명이 유효한 것
+            return None
+    except httpx.HTTPError as e:
+        logger.warning("Google credential validation error: %s", e)
+        return "Google 서버에 연결할 수 없습니다. 네트워크를 확인하세요."
 
 
 def _decode_id_token(id_token: str) -> dict | None:
