@@ -47,9 +47,16 @@ jobs:
             COMMIT_SHA=${{ github.sha }}
 
       - name: Trigger NAS deploy
-        if: success() && secrets.NAS_WEBHOOK_URL != ''
+        if: success()
+        env:
+          NAS_URL: ${{ secrets.NAS_WEBHOOK_URL }}
+          NAS_TOKEN: ${{ secrets.WATCHTOWER_TOKEN }}
         run: |
+          if [ -z "$NAS_URL" ]; then
+            echo "::notice::NAS_WEBHOOK_URL not configured, skipping deploy"
+            exit 0
+          fi
           curl -sf -X POST \
-            -H "Authorization: Bearer ${{ secrets.WATCHTOWER_TOKEN }}" \
-            "${{ secrets.NAS_WEBHOOK_URL }}" \
+            -H "Authorization: Bearer $NAS_TOKEN" \
+            "$NAS_URL" \
             || echo "::warning::NAS webhook failed (NAS may be offline)"
