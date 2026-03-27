@@ -42,3 +42,11 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Trigger NAS deploy
+        if: success() && secrets.NAS_WEBHOOK_URL != ''
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Bearer ${{ secrets.WATCHTOWER_TOKEN }}" \
+            "${{ secrets.NAS_WEBHOOK_URL }}" \
+            || echo "::warning::NAS webhook failed (NAS may be offline)"
