@@ -13,7 +13,7 @@ class TestAuth우회경로:
     def test_health_우회(self):
         assert AuthMiddleware._skip_auth("/health") is True
 
-    def test_webhook_우회(self):
+    def test_github_push_webhook_우회(self):
         assert AuthMiddleware._skip_auth("/api/plugins/github-sync/webhook/github-push") is True
 
     def test_정적파일_우회(self):
@@ -23,6 +23,29 @@ class TestAuth우회경로:
     def test_api_경로는_인증_필요(self):
         assert AuthMiddleware._skip_auth("/api/plugins") is False
         assert AuthMiddleware._skip_auth("/api/plugins/github-sync/status") is False
+
+
+class TestWebhook보안:
+    """V-04: github-push 외의 webhook은 JWT 인증 필요."""
+
+    def test_sync_all_인증_필요(self):
+        assert AuthMiddleware._skip_auth("/api/plugins/github-sync/webhook/sync-all") is False
+
+    def test_sync_one_인증_필요(self):
+        assert AuthMiddleware._skip_auth("/api/plugins/github-sync/webhook/sync-one") is False
+
+    def test_deduplicate_인증_필요(self):
+        assert AuthMiddleware._skip_auth("/api/plugins/github-sync/webhook/deduplicate") is False
+
+    def test_임의_webhook_경로_인증_필요(self):
+        """신규 플러그인의 임의 webhook도 기본적으로 인증 필요."""
+        assert AuthMiddleware._skip_auth("/api/plugins/youtube/webhook/push") is False
+        assert AuthMiddleware._skip_auth("/api/plugins/foo/webhook/bar") is False
+
+    def test_github_push만_우회(self):
+        """github-push 패턴만 JWT 인증을 우회한다."""
+        assert AuthMiddleware._skip_auth("/api/plugins/github-sync/webhook/github-push") is True
+        assert AuthMiddleware._skip_auth("/api/plugins/other/webhook/github-push") is True
 
 
 class Test정적파일제외:
@@ -68,7 +91,7 @@ class Test설계_강제성:
         assert AuthMiddleware._skip_auth("/api/plugins/youtube/status") is False
         assert AuthMiddleware._is_static("/api/plugins/youtube/status") is False
 
-    def test_신규_webhook은_인증_우회하지만_로그는_기록(self):
-        """웹훅은 인증 우회하되 감사 로그에는 남아야 한다."""
-        assert AuthMiddleware._skip_auth("/api/plugins/youtube/webhook/push") is True
-        assert AuthMiddleware._is_static("/api/plugins/youtube/webhook/push") is False
+    def test_신규_webhook은_기본적으로_인증_필요하고_로그_기록(self):
+        """신규 webhook은 기본적으로 인증이 필요하며 감사 로그에 남아야 한다."""
+        assert AuthMiddleware._skip_auth("/api/plugins/youtube/webhook/notify") is False
+        assert AuthMiddleware._is_static("/api/plugins/youtube/webhook/notify") is False

@@ -14,6 +14,7 @@ Tessera 애플리케이션 엔트리포인트.
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -36,6 +37,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).parent / "static"
+_STATIC_DIR_RESOLVED = STATIC_DIR.resolve()
 
 
 @asynccontextmanager
@@ -46,7 +48,15 @@ async def lifespan(app):
     yield
 
 
-app = FastAPI(title="Tessera", lifespan=lifespan)
+_DEBUG = os.environ.get("TESSERA_DEBUG", "").lower() in ("1", "true", "yes")
+
+app = FastAPI(
+    title="Tessera",
+    lifespan=lifespan,
+    docs_url="/docs" if _DEBUG else None,
+    redoc_url="/redoc" if _DEBUG else None,
+    openapi_url="/openapi.json" if _DEBUG else None,
+)
 
 # ── 1. Config 로드 ──
 _config = try_load_config()
@@ -91,7 +101,12 @@ if STATIC_DIR.exists() and (STATIC_DIR / "assets").exists():
 @app.get("/{full_path:path}")
 async def serve_spa(request: Request, full_path: str):
     """API가 아닌 모든 경로에서 React SPA의 index.html을 반환한다."""
-    file_path = STATIC_DIR / full_path
+    try:
+        file_path = (STATIC_DIR / full_path).resolve()
+        file_path.relative_to(_STATIC_DIR_RESOLVED)
+    except (ValueError, OSError):
+        # STATIC_DIR 외부 접근 시도 (Path Traversal) → SPA fallback
+        return FileResponse(STATIC_DIR / "index.html")
     if full_path and file_path.is_file():
         return FileResponse(file_path)
     return FileResponse(STATIC_DIR / "index.html")

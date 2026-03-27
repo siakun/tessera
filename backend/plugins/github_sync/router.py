@@ -353,17 +353,23 @@ async def webhook_github_push(request: Request, background_tasks: BackgroundTask
     _require_configured()
     body = await request.body()
 
-    if config.settings.github_webhook_secret:
-        signature = request.headers.get("X-Hub-Signature-256", "")
-        expected = "sha256=" + hmac.new(
-            config.settings.github_webhook_secret.encode(),
-            body,
-            hashlib.sha256,
-        ).hexdigest()
+    if not config.settings.github_webhook_secret:
+        logger.warning("[github-push] webhook_secret 미설정 — 요청 거부")
+        return Response(
+            status_code=403,
+            content="Webhook secret not configured. Set [github] webhook_secret in settings.",
+        )
 
-        if not hmac.compare_digest(signature, expected):
-            logger.warning("[github-push] 서명 검증 실패")
-            return Response(status_code=403, content="Invalid signature")
+    signature = request.headers.get("X-Hub-Signature-256", "")
+    expected = "sha256=" + hmac.new(
+        config.settings.github_webhook_secret.encode(),
+        body,
+        hashlib.sha256,
+    ).hexdigest()
+
+    if not hmac.compare_digest(signature, expected):
+        logger.warning("[github-push] 서명 검증 실패")
+        return Response(status_code=403, content="Invalid signature")
 
     try:
         data = json.loads(body)

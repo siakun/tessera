@@ -40,7 +40,13 @@ class AuthMiddleware(BaseHTTPMiddleware):
         else:
             response = await self._authenticate(request, call_next, ip, method, path)
 
-        # ── 2. 감사 로그 (정적 파일만 제외, 나머지 전부 기록) ──
+        # ── 2. 보안 헤더 ──
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+
+        # ── 3. 감사 로그 (정적 파일만 제외, 나머지 전부 기록) ──
         if not self._is_static(path):
             user = None
             if hasattr(request.state, "user"):
@@ -82,7 +88,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return True
         if path == "/health":
             return True
-        if "/webhook/" in path:
+        # 외부 서비스 웹훅만 JWT 우회 (핸들러에서 HMAC 자체 검증)
+        if path.endswith("/webhook/github-push"):
             return True
         if not path.startswith("/api/"):
             return True
