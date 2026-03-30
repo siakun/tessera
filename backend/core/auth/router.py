@@ -5,14 +5,15 @@ Google OAuth 플로우, 세션 관리, 초기 설정 엔드포인트.
 /auth/* 경로는 미들웨어에서 우회되므로 인증 없이 접근 가능.
 """
 
-import base64
-import json
+import asyncio
 import logging
 import secrets
 from urllib.parse import urlencode
 
+import google.auth.transport.requests
 import httpx
 from fastapi import APIRouter, Request
+from google.oauth2 import id_token as google_id_token
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
@@ -205,7 +206,7 @@ async def auth_callback(request: Request, code: str = "", state: str = ""):
     if not id_token:
         return RedirectResponse(url="/?auth_error=google_error")
 
-    user_info = _decode_id_token(id_token)
+    user_info = await _verify_id_token(id_token, cfg.google_client_id)
     if not user_info:
         return RedirectResponse(url="/?auth_error=google_error")
 
@@ -297,16 +298,16 @@ async def _validate_google_credentials(
         return "Google 서버에 연결할 수 없습니다. 네트워크를 확인하세요."
 
 
-def _decode_id_token(id_token: str) -> dict | None:
-    """Google id_token의 payload를 디코드한다 (서명 검증 생략 — confidential client)."""
+_google_transport = google.auth.transport.requests.Request()
+
+
+async def _verify_id_token(id_token: str, client_id: str) -> dict | None:
+    """Google ID Token의 서명을 검증하고 payload를 반환한다."""
     try:
-        parts = id_token.split(".")
-        if len(parts) != 3:
-            return None
-        payload_b64 = parts[1]
-        padding = 4 - len(payload_b64) % 4
-        if padding != 4:
-            payload_b64 += "=" * padding
-        return json.loads(base64.urlsafe_b64decode(payload_b64))
-    except Exception:
+        return await asyncio.to_thread(
+            google_id_token.verify_oauth2_token,
+            id_token, _google_transport, client_id,
+        )
+    except Exception as e:
+        logger.warning("Google ID Token 검증 실패: %s", e)
         return None
