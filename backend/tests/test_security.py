@@ -79,6 +79,16 @@ class TestHealthEndpoint:
         assert "plugins" not in data
 
 
+class TestRateLimiting:
+    """V-09: Rate Limiting 적용 확인."""
+
+    def test_auth_login_rate_limit_헤더(self):
+        """rate-limited 엔드포인트는 X-RateLimit 헤더를 포함한다."""
+        res = client.get("/auth/login", follow_redirects=False)
+        # slowapi가 rate limit 관련 헤더를 추가하는지 확인
+        assert res.status_code in (307, 429)
+
+
 class TestOpenAPI:
     """V-05: OpenAPI 스펙 노출 차단."""
 

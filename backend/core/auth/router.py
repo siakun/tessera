@@ -22,6 +22,7 @@ from backend.core.auth.config import save_auth_config
 from backend.core.auth.jwt_utils import create_token, verify_token
 from backend.core import audit
 from backend.core.auth.middleware import _get_client_ip
+from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -76,7 +77,8 @@ class AuthSetupRequest(BaseModel):
 
 
 @router.post("/setup")
-async def auth_setup(req: AuthSetupRequest, req_raw: Request):
+@limiter.limit("5/minute")
+async def auth_setup(req: AuthSetupRequest, request: Request):
     """초기 인증 설정을 저장한다. 이미 설정된 경우 403."""
     if auth_configured():
         return JSONResponse(
@@ -122,7 +124,7 @@ async def auth_setup(req: AuthSetupRequest, req_raw: Request):
     save_auth_config(data)
     reload_auth_config()
 
-    ip = _get_client_ip(req_raw)
+    ip = _get_client_ip(request)
     await audit.add_entry(ip=ip, method="POST", path="/auth/setup", status=200,
                     event="auth_setup", detail=f"allowed: {', '.join(emails)}")
     logger.info("인증 초기 설정 완료: 허용 이메일 %d개", len(emails))
@@ -134,6 +136,7 @@ async def auth_setup(req: AuthSetupRequest, req_raw: Request):
 # ═══════════════════════════════════════════════════════════════
 
 @router.get("/login")
+@limiter.limit("10/minute")
 async def auth_login(request: Request):
     """Google OAuth 동의 화면으로 리다이렉트한다."""
     cfg = get_auth_config()
@@ -169,6 +172,7 @@ async def auth_login(request: Request):
 
 
 @router.get("/callback")
+@limiter.limit("10/minute")
 async def auth_callback(request: Request, code: str = "", state: str = ""):
     """Google OAuth 콜백을 처리한다."""
     cfg = get_auth_config()

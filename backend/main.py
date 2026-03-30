@@ -22,9 +22,12 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from slowapi.errors import RateLimitExceeded
+
 from backend.core.config import try_load_config
 from backend.core.database import init_db
 from backend.core.plugin_registry import discover_plugins
+from backend.core.rate_limit import limiter, rate_limit_exceeded_handler
 from backend.core.version import VERSION_STRING
 from backend.core.auth import auth_configured
 from backend.core.auth.middleware import AuthMiddleware
@@ -65,8 +68,10 @@ if _config:
 else:
     logger.warning("config.toml 없음 — 설정 마법사 모드로 시작합니다.")
 
-# ── 2. 인증 미들웨어 (항상 활성) + auth 라우터 ──
+# ── 2. 인증 미들웨어 (항상 활성) + auth 라우터 + Rate Limiting ──
 app.add_middleware(AuthMiddleware)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 app.include_router(auth_router)
 
 if auth_configured():
