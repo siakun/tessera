@@ -22,7 +22,8 @@ class Test플러그인엔드포인트:
         assert res.status_code == 200
         data = res.json()
         assert data["status"] == "ok"
-        assert "github-sync" in data["plugins"]
+        assert "version" not in data
+        assert "plugins" not in data
 
     def test_플러그인_목록_조회(self):
         res = client.get("/api/plugins")

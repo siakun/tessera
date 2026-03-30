@@ -85,12 +85,7 @@ app.include_router(plugins_router.router)
 
 @app.get("/health")
 async def health():
-    from backend.core.plugin_registry import get_registered
-    return {
-        "status": "ok",
-        "version": VERSION_STRING,
-        "plugins": [p["id"] for p in get_registered()],
-    }
+    return {"status": "ok"}
 
 
 # ── 5. React SPA 정적 파일 서빙 (반드시 마지막) ──

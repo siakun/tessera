@@ -66,6 +66,19 @@ class TestWebhookAuth:
         assert res.status_code == 503
 
 
+class TestHealthEndpoint:
+    """V-05: /health 엔드포인트 정보 노출 방어."""
+
+    def test_버전_플러그인_정보_미노출(self):
+        """/health는 status만 반환하고 상세 정보를 노출하지 않는다."""
+        res = client.get("/health")
+        assert res.status_code == 200
+        data = res.json()
+        assert data == {"status": "ok"}
+        assert "version" not in data
+        assert "plugins" not in data
+
+
 class TestOpenAPI:
     """V-05: OpenAPI 스펙 노출 차단."""
 
